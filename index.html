@@ -53,6 +53,9 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 
+  <!-- D3.js for Interactive Knowledge Graph View -->
+  <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+
   <style>
     /* Minimalist Scrollbars */
     ::-webkit-scrollbar {
@@ -338,40 +341,63 @@
       border: 1px solid #252130;
       margin: 1.25rem 0;
     }
+
+    /* Mobile Touch & Safe-Area Enhancements */
+    @supports (padding: env(safe-area-inset-bottom)) {
+      .safe-pb {
+        padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+      }
+      .safe-pt {
+        padding-top: env(safe-area-inset-top);
+      }
+    }
+    button, a, select {
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
   </style>
 </head>
 
 <body class="bg-canvas text-ink font-sans antialiased h-[100dvh] flex flex-col overflow-x-hidden overflow-y-hidden selection:bg-accent/25 selection:text-ink">
 
-  <!-- Whisper-Quiet 44px Top Header -->
-  <header class="h-11 bg-canvas border-b border-hairline/70 px-3 sm:px-5 flex items-center justify-between gap-3 shrink-0 z-30">
+  <!-- Whisper-Quiet Top Header (48px on mobile for comfortable thumb targets, 44px on desktop) -->
+  <header class="h-12 sm:h-11 safe-pt bg-canvas border-b border-hairline/70 px-2.5 sm:px-5 flex items-center justify-between gap-2 shrink-0 z-30">
     <!-- Left: Sidebar Toggle + Repo / File Breadcrumb -->
-    <div class="flex items-center gap-2 min-w-0 flex-1">
-      <button onclick="toggleSidebar()" class="p-2 sm:p-1.5 -ml-1.5 rounded text-muted hover:text-ink transition shrink-0" title="Toggle sidebar" aria-label="Toggle sidebar">
+    <div class="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
+      <button onclick="toggleSidebar()" class="w-10 h-10 sm:w-auto sm:h-auto sm:p-1.5 -ml-1 rounded-lg text-muted hover:text-ink active:bg-elevated flex items-center justify-center transition shrink-0" title="Toggle sidebar" aria-label="Toggle sidebar">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M4 6h16M4 12h16M4 18h16" />
         </svg>
       </button>
 
       <div class="flex items-center gap-1.5 text-xs min-w-0 truncate">
-        <button onclick="openSetupModal()" id="header-repo-name" class="font-medium text-prose hover:text-accent transition shrink-0 py-1">
+        <button id="header-repo-name" onclick="openSetupModal()" class="font-mono text-prose hover:text-accent py-1.5 transition shrink-0" title="Repository settings">
           rootlog
         </button>
-        <span class="text-muted/50 shrink-0">/</span>
-        <span id="breadcrumb-path" class="text-muted truncate">README.md</span>
+        <span class="text-muted/60 shrink-0">/</span>
+        <span id="breadcrumb-path" class="font-mono text-muted truncate">README.md</span>
       </div>
     </div>
 
-    <!-- Right: Sync + Settings Gear -->
-    <div class="flex items-center gap-1 shrink-0">
-      <button onclick="refreshRepository()" class="p-2 sm:p-1.5 rounded text-muted hover:text-accent transition" title="Sync repository" aria-label="Sync repository">
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <!-- Right: Graph View + Sync + Settings Gear -->
+    <div class="flex items-center gap-0.5 sm:gap-1 shrink-0">
+      <button id="btn-toggle-graph" onclick="toggleGraphView()" class="w-10 h-10 sm:w-auto sm:h-auto sm:p-1.5 rounded-lg text-muted hover:text-accent active:bg-elevated flex items-center justify-center transition" title="Knowledge Graph View (G)" aria-label="Toggle graph view">
+        <svg class="w-4 h-4 sm:w-3.5 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <circle cx="6" cy="6" r="2.2" stroke-width="1.6" />
+          <circle cx="18" cy="7" r="2.2" stroke-width="1.6" />
+          <circle cx="12" cy="18" r="2.2" stroke-width="1.6" />
+          <path stroke-linecap="round" stroke-width="1.5" d="M7.9 7.2l8.1-.1M7.2 7.8l3.7 8.3M16.8 8.8l-3.7 7.3" />
+        </svg>
+      </button>
+
+      <button onclick="refreshRepository()" class="w-10 h-10 sm:w-auto sm:h-auto sm:p-1.5 rounded-lg text-muted hover:text-accent active:bg-elevated flex items-center justify-center transition" title="Sync repository" aria-label="Sync repository">
+        <svg class="w-4 h-4 sm:w-3.5 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
         </svg>
       </button>
 
-      <button onclick="openSetupModal()" class="p-2 sm:p-1.5 rounded text-muted hover:text-ink transition" title="Repository configuration" aria-label="Repository settings">
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <button onclick="openSetupModal()" class="w-10 h-10 sm:w-auto sm:h-auto sm:p-1.5 rounded-lg text-muted hover:text-ink active:bg-elevated flex items-center justify-center transition" title="Repository configuration" aria-label="Repository settings">
+        <svg class="w-4 h-4 sm:w-3.5 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
@@ -383,52 +409,140 @@
   <div class="flex-1 flex overflow-hidden relative min-w-0">
 
     <!-- Mobile Sidebar Backdrop -->
-    <div id="mobile-backdrop" onclick="toggleSidebar(false)" class="fixed inset-0 bg-black/60 z-30 hidden lg:hidden"></div>
+    <div id="mobile-backdrop" onclick="toggleSidebar(false)" class="fixed inset-0 bg-black/70 backdrop-blur-[1px] z-30 hidden lg:hidden"></div>
 
-    <!-- Ultra-Minimal Left Sidebar (240px desktop, drawer on mobile) -->
-    <aside id="left-sidebar" class="fixed lg:static inset-y-0 left-0 z-40 w-[80vw] max-w-[280px] lg:w-[240px] bg-canvas border-r border-hairline/70 flex flex-col transform -translate-x-full lg:translate-x-0 transition-transform duration-200 ease-out shrink-0">
-      <!-- Borderless Inline Search -->
-      <div class="px-3 py-2 border-b border-hairline/50 flex items-center gap-2">
-        <svg class="w-3.5 h-3.5 text-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <!-- Ultra-Minimal Left Sidebar (240px desktop, comfortable drawer on phones) -->
+    <aside id="left-sidebar" class="fixed lg:static inset-y-0 left-0 z-40 w-[84vw] max-w-[300px] lg:w-[240px] bg-canvas border-r border-hairline/70 flex flex-col transform -translate-x-full lg:translate-x-0 transition-transform duration-200 ease-out shrink-0">
+      <!-- Borderless Inline Search (16px on mobile to prevent iOS auto-zoom) -->
+      <div class="px-3 py-2.5 sm:py-2 border-b border-hairline/50 flex items-center gap-2">
+        <svg class="w-4 h-4 sm:w-3.5 sm:h-3.5 text-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
         <input
           id="search-input"
           type="text"
-          placeholder="Search..."
+          placeholder="Filter notes..."
           oninput="handleSearchInput(this.value)"
-          class="w-full bg-transparent text-xs text-ink placeholder-muted/70 focus:outline-none py-1"
+          class="w-full bg-transparent text-[16px] sm:text-xs text-ink placeholder-muted/70 focus:outline-none py-1"
         />
-        <button id="clear-search-btn" onclick="clearSearch()" class="hidden p-1 text-muted hover:text-ink text-xs" aria-label="Clear search">
+        <button id="clear-search-btn" onclick="clearSearch()" class="hidden p-2 text-muted hover:text-ink text-xs" aria-label="Clear search">
           ✕
         </button>
-        <button onclick="toggleSidebar(false)" class="lg:hidden p-1 text-muted hover:text-ink text-xs" aria-label="Close sidebar">
+        <button onclick="toggleSidebar(false)" class="lg:hidden w-9 h-9 flex items-center justify-center rounded-lg text-muted hover:text-ink active:bg-elevated text-sm" aria-label="Close sidebar">
           ✕
         </button>
       </div>
 
       <!-- Quiet Collapsible File Tree -->
-      <div id="file-tree-container" class="flex-1 overflow-y-auto overscroll-contain px-2 py-2.5 space-y-0.5 text-[13px]">
+      <div id="file-tree-container" class="flex-1 overflow-y-auto overscroll-contain px-2 py-2.5 pb-16 lg:pb-3 space-y-1 sm:space-y-0.5 text-[14px] sm:text-[13px]">
         <!-- Rendered dynamically -->
       </div>
     </aside>
 
     <!-- Centered Distraction-Free Document Canvas -->
-    <main id="reader-scroll-container" class="flex-1 min-w-0 overflow-y-auto overflow-x-hidden scroll-smooth bg-canvas">
+    <main id="reader-scroll-container" class="flex-1 min-w-0 overflow-y-auto overflow-x-hidden overscroll-contain scroll-smooth bg-canvas">
       <!-- Subtle Status Notice (Only shown on connection fallback or errors) -->
-      <div id="status-banner" class="hidden max-w-[680px] mx-auto px-5 sm:px-8 pt-6">
-        <div class="px-3.5 py-2 rounded bg-elevated/70 border border-hairline text-xs text-prose flex items-center justify-between gap-3">
+      <div id="status-banner" class="hidden max-w-[680px] mx-auto px-4 sm:px-8 pt-4 sm:pt-6">
+        <div class="px-3.5 py-2.5 rounded-lg bg-elevated/70 border border-hairline text-xs text-prose flex items-center justify-between gap-3">
           <span id="status-banner-msg"></span>
-          <button onclick="hideBanner()" class="p-1 text-muted hover:text-ink shrink-0" aria-label="Dismiss notice">✕</button>
+          <button onclick="hideBanner()" class="p-1.5 text-muted hover:text-ink shrink-0" aria-label="Dismiss notice">✕</button>
         </div>
       </div>
 
-      <!-- Centered 680px Optimal Reading Column -->
-      <div class="max-w-[680px] mx-auto px-5 sm:px-8 py-9 sm:py-14 lg:py-16">
+      <!-- Centered 680px Optimal Reading Column (Extra bottom padding for mobile dock) -->
+      <div class="max-w-[680px] mx-auto px-4 sm:px-8 pt-5 pb-24 sm:py-11 lg:py-13">
+
+        <!-- Always-Visible Hero Search Bar (16px font on mobile to prevent iOS zoom) -->
+        <div id="hero-search-wrapper" class="relative mb-5 sm:mb-8">
+          <div class="flex items-center gap-2.5 bg-elevated/85 border border-hairline focus-within:border-accent rounded-xl sm:rounded-lg px-3.5 py-2.5 transition">
+            <svg class="w-4 h-4 text-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              id="hero-search-input"
+              type="text"
+              autocomplete="off"
+              placeholder="Search notes, folders, or text..."
+              oninput="handleSearchInput(this.value, 'hero')"
+              onfocus="openHeroSearchResults()"
+              onkeydown="handleHeroSearchKeydown(event)"
+              class="w-full bg-transparent text-[16px] sm:text-[13px] text-ink placeholder-muted focus:outline-none"
+            />
+            <button
+              id="hero-clear-search-btn"
+              type="button"
+              onclick="clearSearch()"
+              class="hidden w-8 h-8 flex items-center justify-center rounded-md text-muted hover:text-ink active:bg-surface text-xs shrink-0"
+              aria-label="Clear search"
+            >
+              ✕
+            </button>
+            <kbd class="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono text-muted bg-canvas border border-hairline rounded shrink-0">
+              /
+            </kbd>
+          </div>
+
+          <!-- Instant Search Results Dropdown -->
+          <div
+            id="hero-search-dropdown"
+            class="hidden absolute left-0 right-0 mt-1.5 bg-elevated border border-hairlineHover rounded-xl sm:rounded-lg shadow-2xl overflow-hidden z-20 max-h-[55dvh] sm:max-h-72 overflow-y-auto overscroll-contain"
+          >
+            <div id="hero-search-results" class="divide-y divide-hairline/50"></div>
+          </div>
+        </div>
+
+        <!-- Notes Switch System Bar (Quick Note Selector + Prev/Next Switcher) -->
+        <div class="mb-6 sm:mb-7 pb-3 border-b border-hairline/70 flex items-center justify-between gap-2">
+          <div class="flex items-center gap-1.5 min-w-0 flex-1">
+            <button
+              id="btn-prev-note"
+              type="button"
+              onclick="switchNoteByOffset(-1)"
+              class="w-10 h-10 sm:w-auto sm:h-auto sm:p-1.5 rounded-lg sm:rounded bg-elevated/70 border border-hairline hover:border-accent/60 active:bg-surface text-muted hover:text-accent disabled:opacity-35 disabled:pointer-events-none flex items-center justify-center transition shrink-0"
+              title="Previous note ([)"
+              aria-label="Previous note"
+            >
+              <svg class="w-4 h-4 sm:w-3.5 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+
+            <div class="relative min-w-0 flex-1 sm:max-w-[300px]">
+              <select
+                id="note-switcher-select"
+                onchange="if (this.value) selectNote(this.value)"
+                aria-label="Switch active note"
+                class="w-full h-10 sm:h-auto appearance-none bg-elevated/70 border border-hairline hover:border-hairlineHover focus:border-accent rounded-lg sm:rounded px-3 sm:px-2.5 py-1.5 pr-8 font-mono text-[14px] sm:text-xs text-ink focus:outline-none truncate cursor-pointer transition"
+              >
+                <option value="">Loading notes...</option>
+              </select>
+              <svg class="w-3.5 h-3.5 sm:w-3 sm:h-3 text-muted pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+
+            <button
+              id="btn-next-note"
+              type="button"
+              onclick="switchNoteByOffset(1)"
+              class="w-10 h-10 sm:w-auto sm:h-auto sm:p-1.5 rounded-lg sm:rounded bg-elevated/70 border border-hairline hover:border-accent/60 active:bg-surface text-muted hover:text-accent disabled:opacity-35 disabled:pointer-events-none flex items-center justify-center transition shrink-0"
+              title="Next note (])"
+              aria-label="Next note"
+            >
+              <svg class="w-4 h-4 sm:w-3.5 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+
+          <span id="note-position-indicator" class="font-mono text-[11px] text-muted shrink-0">
+            0 / 0
+          </span>
+        </div>
 
         <!-- Whisper-Quiet Document Header -->
-        <header class="mb-8 sm:mb-10">
-          <div class="flex items-start justify-between gap-4">
+        <header class="mb-7 sm:mb-10">
+          <div class="flex items-start justify-between gap-3 sm:gap-4">
             <div class="min-w-0">
               <h1 id="note-display-title" class="text-xl sm:text-2xl md:text-[26px] font-semibold text-ink tracking-tight leading-snug break-words">
                 Loading...
@@ -437,12 +551,12 @@
             </div>
 
             <!-- Subtle Raw Toggle + GitHub Link -->
-            <div class="flex items-center gap-1 shrink-0 pt-1 text-xs">
-              <button id="btn-toggle-raw" onclick="toggleRawView()" class="px-2 py-1 rounded text-muted hover:text-accent transition font-mono text-[11px]" title="Toggle raw source">
+            <div class="flex items-center gap-1 shrink-0 pt-0.5 text-xs">
+              <button id="btn-toggle-raw" onclick="toggleRawView()" class="px-2.5 py-2 sm:px-2 sm:py-1 rounded-lg sm:rounded text-muted hover:text-accent active:bg-elevated transition font-mono text-xs sm:text-[11px]" title="Toggle raw source">
                 raw
               </button>
-              <a id="open-github-link" href="https://github.com/mkharwar314/rootlog" target="_blank" rel="noopener noreferrer" class="p-1.5 rounded text-muted hover:text-ink transition" title="Open on GitHub" aria-label="Open on GitHub">
-                <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+              <a id="open-github-link" href="https://github.com/mkharwar314/rootlog" target="_blank" rel="noopener noreferrer" class="w-9 h-9 sm:w-auto sm:h-auto sm:p-1.5 rounded-lg sm:rounded text-muted hover:text-ink active:bg-elevated flex items-center justify-center transition" title="Open on GitHub" aria-label="Open on GitHub">
+                <svg class="w-4 h-4 sm:w-3.5 sm:h-3.5" fill="currentColor" viewBox="0 0 24 24">
                   <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
                 </svg>
               </a>
@@ -460,7 +574,7 @@
         <!-- Plain Text Notice (For .txt files) -->
         <div id="txt-render-notice" class="hidden mb-6 text-xs text-muted flex items-center justify-between">
           <span>Plain text</span>
-          <button id="btn-force-md" onclick="toggleForceMarkdownOnTxt()" class="text-accent hover:text-teal transition">
+          <button id="btn-force-md" onclick="toggleForceMarkdownOnTxt()" class="py-1.5 text-accent hover:text-teal transition">
             Render as Markdown
           </button>
         </div>
@@ -472,19 +586,109 @@
         <div id="raw-output-container" class="hidden">
           <pre class="bg-sidebar border border-hairline rounded-md p-4 overflow-x-auto font-mono text-xs text-ink/90 leading-relaxed whitespace-pre-wrap break-words"><code id="raw-output"></code></pre>
         </div>
+
+        <!-- Bottom Notes Switch Footer -->
+        <nav id="bottom-note-switcher" class="mt-12 sm:mt-14 pt-6 border-t border-hairline/70 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <button
+            id="footer-prev-btn"
+            type="button"
+            onclick="switchNoteByOffset(-1)"
+            class="group flex flex-col items-start p-3.5 sm:p-3 rounded-xl sm:rounded-lg bg-elevated/50 border border-hairline hover:border-accent/60 active:bg-surface transition text-left disabled:opacity-35 disabled:pointer-events-none min-w-0"
+          >
+            <span class="text-[11px] font-mono text-muted group-hover:text-accent transition">← Previous</span>
+            <span id="footer-prev-title" class="mt-1 text-xs font-medium text-ink truncate w-full">None</span>
+          </button>
+
+          <button
+            id="footer-next-btn"
+            type="button"
+            onclick="switchNoteByOffset(1)"
+            class="group flex flex-col items-start sm:items-end p-3.5 sm:p-3 rounded-xl sm:rounded-lg bg-elevated/50 border border-hairline hover:border-accent/60 active:bg-surface transition text-left sm:text-right disabled:opacity-35 disabled:pointer-events-none min-w-0"
+          >
+            <span class="text-[11px] font-mono text-muted group-hover:text-accent transition">Next →</span>
+            <span id="footer-next-title" class="mt-1 text-xs font-medium text-ink truncate w-full">None</span>
+          </button>
+        </nav>
       </div>
     </main>
-  </div>
 
-  <!-- Minimalist Repository Configuration Modal -->
-  <div id="setup-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/75 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
-    <div class="bg-elevated border border-hairline rounded-xl w-full max-w-md shadow-2xl overflow-hidden my-auto">
-      <div class="px-4 sm:px-5 py-3.5 border-b border-hairline flex items-center justify-between">
-        <h2 class="text-sm font-medium text-ink">Repository Settings</h2>
-        <button onclick="closeSetupModal()" class="text-muted hover:text-ink text-xs p-2 -mr-1" aria-label="Close settings">✕</button>
+    <!-- Minimalist Interactive Knowledge Graph View -->
+    <section id="graph-view-container" class="hidden flex-1 min-w-0 relative bg-canvas overflow-hidden select-none">
+      <!-- Subtle Top-Left Info & Indexing Indicator -->
+      <div class="absolute top-3.5 left-3.5 sm:left-4 z-10 pointer-events-none flex items-center gap-2 text-xs font-mono text-muted bg-canvas/80 px-2 py-1 rounded">
+        <span id="graph-stats-label">0 nodes · 0 links</span>
+        <span id="graph-indexing-badge" class="hidden text-accent animate-pulse">· indexing...</span>
       </div>
 
-      <form id="repo-config-form" onsubmit="saveAndConnectRepo(event)" class="p-4 sm:p-5 space-y-4">
+      <!-- Thumb-Friendly Top-Right Graph Controls -->
+      <div class="absolute top-3 right-3 sm:right-4 z-10 flex items-center gap-1 bg-elevated/95 border border-hairline rounded-lg p-1 text-xs shadow-lg">
+        <button id="btn-graph-scope" onclick="toggleGraphScope()" class="px-2.5 py-2 sm:px-2 sm:py-1 rounded-md text-prose hover:text-ink active:bg-surface transition font-mono text-[11px]" title="Switch between Full Vault and Local Note Graph">
+          full vault
+        </button>
+        <span class="text-hairline">|</span>
+        <button onclick="resetGraphZoom()" class="px-2.5 py-2 sm:px-2 sm:py-1 rounded-md text-muted hover:text-accent active:bg-surface transition font-mono text-[11px]" title="Center graph">
+          center
+        </button>
+        <button onclick="toggleGraphView(false)" class="w-8 h-8 sm:w-auto sm:h-auto sm:px-2 sm:py-1 rounded-md text-muted hover:text-ink active:bg-surface flex items-center justify-center transition text-xs" title="Close Graph View (Esc)" aria-label="Close graph view">
+          ✕
+        </button>
+      </div>
+
+      <!-- D3 SVG Canvas -->
+      <svg id="knowledge-graph-svg" class="w-full h-full cursor-grab active:cursor-grabbing"></svg>
+    </section>
+  </div>
+
+  <!-- Mobile Bottom Quick-Action Dock (Phones Only) -->
+  <nav class="lg:hidden bg-elevated/95 backdrop-blur-md border-t border-hairline px-3 pt-1.5 safe-pb flex items-center justify-around gap-1 shrink-0 z-30" aria-label="Mobile navigation">
+    <button type="button" onclick="toggleSidebar(true)" class="flex-1 py-1.5 rounded-lg text-muted hover:text-ink active:bg-surface flex flex-col items-center justify-center gap-0.5 text-[10px] font-mono">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+      </svg>
+      <span>Notes</span>
+    </button>
+
+    <button type="button" onclick="focusSearchInput()" class="flex-1 py-1.5 rounded-lg text-muted hover:text-ink active:bg-surface flex flex-col items-center justify-center gap-0.5 text-[10px] font-mono">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+      </svg>
+      <span>Search</span>
+    </button>
+
+    <button type="button" onclick="switchNoteByOffset(-1)" class="flex-1 py-1.5 rounded-lg text-muted hover:text-ink active:bg-surface flex flex-col items-center justify-center gap-0.5 text-[10px] font-mono">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M15 19l-7-7 7-7" />
+      </svg>
+      <span>Prev</span>
+    </button>
+
+    <button type="button" onclick="switchNoteByOffset(1)" class="flex-1 py-1.5 rounded-lg text-muted hover:text-ink active:bg-surface flex flex-col items-center justify-center gap-0.5 text-[10px] font-mono">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M9 5l7 7-7 7" />
+      </svg>
+      <span>Next</span>
+    </button>
+
+    <button type="button" onclick="toggleGraphView()" class="flex-1 py-1.5 rounded-lg text-muted hover:text-accent active:bg-surface flex flex-col items-center justify-center gap-0.5 text-[10px] font-mono">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <circle cx="6" cy="6" r="2.2" stroke-width="1.6" />
+        <circle cx="18" cy="7" r="2.2" stroke-width="1.6" />
+        <circle cx="12" cy="18" r="2.2" stroke-width="1.6" />
+        <path stroke-linecap="round" stroke-width="1.5" d="M7.9 7.2l8.1-.1M7.2 7.8l3.7 8.3M16.8 8.8l-3.7 7.3" />
+      </svg>
+      <span>Graph</span>
+    </button>
+  </nav>
+
+  <!-- Minimalist Repository Configuration Modal (Bottom-sheet feel on phones, centered modal on desktop) -->
+  <div id="setup-modal" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center bg-black/75 backdrop-blur-xs p-0 sm:p-4 overflow-y-auto">
+    <div class="bg-elevated border-t sm:border border-hairline rounded-t-2xl sm:rounded-xl w-full max-w-md shadow-2xl overflow-hidden my-0 sm:my-auto max-h-[92dvh] flex flex-col">
+      <div class="px-4 sm:px-5 py-3.5 border-b border-hairline flex items-center justify-between shrink-0">
+        <h2 class="text-sm font-medium text-ink">Repository Settings</h2>
+        <button onclick="closeSetupModal()" class="w-9 h-9 sm:w-auto sm:h-auto text-muted hover:text-ink text-xs flex items-center justify-center sm:p-2 -mr-1" aria-label="Close settings">✕</button>
+      </div>
+
+      <form id="repo-config-form" onsubmit="saveAndConnectRepo(event)" class="p-4 sm:p-5 space-y-4 overflow-y-auto safe-pb">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label class="block text-xs text-prose mb-1.5">Owner</label>
@@ -494,7 +698,7 @@
               required
               value="mkharwar314"
               placeholder="mkharwar314"
-              class="w-full bg-canvas border border-hairline focus:border-accent rounded-md px-3 py-2 sm:py-1.5 font-mono text-xs text-ink focus:outline-none"
+              class="w-full bg-canvas border border-hairline focus:border-accent rounded-lg sm:rounded-md px-3 py-2.5 sm:py-1.5 font-mono text-[16px] sm:text-xs text-ink focus:outline-none"
             />
           </div>
 
@@ -507,9 +711,9 @@
                 required
                 value="rootlog"
                 placeholder="rootlog"
-                class="w-full bg-canvas border border-hairline focus:border-accent rounded-md px-3 py-2 sm:py-1.5 font-mono text-xs text-ink focus:outline-none"
+                class="w-full bg-canvas border border-hairline focus:border-accent rounded-lg sm:rounded-md px-3 py-2.5 sm:py-1.5 font-mono text-[16px] sm:text-xs text-ink focus:outline-none"
               />
-              <button type="button" onclick="discoverUserRepos()" class="px-3 py-2 sm:px-2.5 sm:py-1.5 rounded-md bg-canvas hover:bg-surface border border-hairline hover:border-hairlineHover text-xs text-prose hover:text-ink shrink-0 transition">
+              <button type="button" onclick="discoverUserRepos()" class="px-3.5 py-2.5 sm:px-2.5 sm:py-1.5 rounded-lg sm:rounded-md bg-canvas hover:bg-surface border border-hairline hover:border-hairlineHover text-xs text-prose hover:text-ink shrink-0 transition">
                 List
               </button>
             </div>
@@ -517,12 +721,12 @@
         </div>
 
         <!-- Public Repo Picker -->
-        <div id="repo-picker-box" class="hidden bg-canvas border border-hairline rounded-md p-2 space-y-1">
+        <div id="repo-picker-box" class="hidden bg-canvas border border-hairline rounded-lg p-2 space-y-1">
           <div class="flex items-center justify-between text-[11px] text-muted px-1">
             <span>Select repository</span>
-            <button type="button" onclick="document.getElementById('repo-picker-box').classList.add('hidden')" class="p-1 hover:text-ink">✕</button>
+            <button type="button" onclick="document.getElementById('repo-picker-box').classList.add('hidden')" class="p-1.5 hover:text-ink">✕</button>
           </div>
-          <div id="repo-picker-list" class="max-h-36 overflow-y-auto space-y-0.5 font-mono text-xs"></div>
+          <div id="repo-picker-list" class="max-h-40 overflow-y-auto space-y-0.5 font-mono text-xs"></div>
         </div>
 
         <div>
@@ -532,7 +736,7 @@
             type="text"
             value="main"
             placeholder="main"
-            class="w-full bg-canvas border border-hairline focus:border-accent rounded-md px-3 py-2 sm:py-1.5 font-mono text-xs text-ink focus:outline-none"
+            class="w-full bg-canvas border border-hairline focus:border-accent rounded-lg sm:rounded-md px-3 py-2.5 sm:py-1.5 font-mono text-[16px] sm:text-xs text-ink focus:outline-none"
           />
         </div>
 
@@ -542,7 +746,7 @@
             id="input-token"
             type="password"
             placeholder="github_pat_... or ghp_..."
-            class="w-full bg-canvas border border-hairline focus:border-accent rounded-md px-3 py-2 sm:py-1.5 font-mono text-xs text-ink focus:outline-none"
+            class="w-full bg-canvas border border-hairline focus:border-accent rounded-lg sm:rounded-md px-3 py-2.5 sm:py-1.5 font-mono text-[16px] sm:text-xs text-ink focus:outline-none"
           />
           <p class="mt-1.5 text-[11px] text-muted leading-relaxed">
             Stored locally in your browser only. Use a read-only token scoped to <code class="text-prose">rootlog</code> (Contents: Read-only).
@@ -550,15 +754,15 @@
         </div>
 
         <div class="pt-3 border-t border-hairline flex flex-wrap items-center justify-between gap-3">
-          <button type="button" onclick="activateDemoMode(true)" class="py-1.5 text-xs text-muted hover:text-teal transition">
+          <button type="button" onclick="activateDemoMode(true)" class="py-2 text-xs text-muted hover:text-teal transition">
             Load sample notes
           </button>
 
           <div class="flex items-center gap-2 ml-auto">
-            <button type="button" onclick="closeSetupModal()" class="px-3 py-2 sm:py-1.5 rounded-md text-xs text-muted hover:text-ink transition">
+            <button type="button" onclick="closeSetupModal()" class="px-3.5 py-2.5 sm:py-1.5 rounded-lg sm:rounded-md text-xs text-muted hover:text-ink transition">
               Cancel
             </button>
-            <button type="submit" class="px-4 py-2 sm:px-3.5 sm:py-1.5 rounded-md bg-accent text-canvas font-semibold text-xs hover:opacity-90 transition">
+            <button type="submit" class="px-4 py-2.5 sm:px-3.5 sm:py-1.5 rounded-lg sm:rounded-md bg-accent text-canvas font-semibold text-xs hover:opacity-90 transition">
               Connect
             </button>
           </div>
@@ -567,9 +771,9 @@
     </div>
   </div>
 
-  <!-- Minimal Toast -->
-  <div id="toast" class="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 z-50 transform translate-y-16 opacity-0 transition-all duration-150 pointer-events-none flex justify-center sm:justify-end">
-    <div class="bg-elevated border border-hairlineHover text-ink px-3.5 py-2 rounded-md shadow-lg text-xs flex items-center gap-2">
+  <!-- Minimal Toast (Positioned above mobile dock) -->
+  <div id="toast" class="fixed bottom-16 lg:bottom-4 left-4 right-4 sm:left-auto sm:right-4 z-50 transform translate-y-16 opacity-0 transition-all duration-150 pointer-events-none flex justify-center sm:justify-end">
+    <div class="bg-elevated border border-hairlineHover text-ink px-3.5 py-2 rounded-lg shadow-lg text-xs flex items-center gap-2">
       <span class="w-1.5 h-1.5 rounded-full bg-teal shrink-0"></span>
       <span id="toast-message">Copied</span>
     </div>
@@ -607,15 +811,22 @@ A distraction-free Markdown reader connected to \`mkharwar314/rootlog\`.
 
 - [x] Rich Markdown rendering with YAML frontmatter and task lists
 - [x] Obsidian-style \`[[WikiLinks]]\` and GitHub callout blocks
+- [x] Interactive **Graph View** (click the graph icon in the top bar or press \`G\`)
 - [x] Relative image and internal document link resolution
 - [x] Keyboard shortcuts (\`/\` or \`Cmd+K\` to search, \`Esc\` to close dialogs)
+
+## Linked Guides
+
+- [[Guides/Nmap-Enumeration|Nmap Enumeration]]
+- [[Guides/Privilege-Escalation|Linux Privilege Escalation]]
 
 ## Quick Reference
 
 | Shortcut | Action |
 | :--- | :--- |
 | \`/\` or \`Cmd + K\` | Filter notes in sidebar |
-| \`Esc\` | Close modal or outline |
+| \`G\` | Toggle Knowledge Graph View |
+| \`Esc\` | Close modal or graph |
 `
       },
       {
@@ -627,7 +838,7 @@ category: Security
 tags: [nmap, recon]
 ---
 
-Systematic port scanning and service discovery workflow.
+Systematic port scanning and service discovery workflow. Return to [[README|rootlog]] or continue to [[Guides/Privilege-Escalation|Privilege Escalation]].
 
 > [!TIP]
 > Save scan output in all formats using \`-oA scan_name\` for easy parsing later.
@@ -646,6 +857,22 @@ PORTS=$(grep '^[0-9]' all_ports.nmap | cut -d '/' -f 1 | tr '\\n' ',' | sed 's/,
 nmap -sC -sV -p $PORTS -Pn $TARGET -oN detailed.nmap
 \`\`\`
 `
+      },
+      {
+        path: 'Guides/Privilege-Escalation.md',
+        sha: 'demo-privesc',
+        content: `---
+title: Linux Privilege Escalation
+category: Security
+tags: [linux, privesc]
+---
+
+Post-exploitation enumeration checklist following [[Guides/Nmap-Enumeration|Nmap Enumeration]].
+
+- [ ] Check \`sudo -l\` permissions
+- [ ] Inspect SUID/SGID binaries (\`find / -perm -4000 2>/dev/null\`)
+- [ ] Review scheduled cron jobs in \`/etc/crontab\`
+`
       }
     ];
 
@@ -662,20 +889,78 @@ nmap -sC -sV -p $PORTS -Pn $TARGET -oN detailed.nmap
       forceMarkdownTxt: false,
       searchQuery: '',
       sidebarCollapsed: false,
-      expandedFolders: new Set()
+      expandedFolders: new Set(),
+      graphOpen: false,
+      graphLocalOnly: false,
+      graphSimulation: null,
+      graphZoomBehavior: null,
+      isIndexingGraph: false,
+      heroSearchIndex: -1
     };
 
-    if (typeof marked !== 'undefined' && typeof marked.use === 'function') {
-      marked.use({ gfm: true, breaks: true });
+    // =========================================================================
+    // 3. INITIALIZATION, CONFIG & KEYBOARD / TOUCH CONTROLS
+    // =========================================================================
+    function loadConfigFromStorage() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          state.config = { ...DEFAULT_CONFIG, ...parsed };
+        }
+      } catch (e) {
+        state.config = { ...DEFAULT_CONFIG };
+      }
+
+      const ownerEl = document.getElementById('input-owner');
+      const repoEl = document.getElementById('input-repo');
+      const branchEl = document.getElementById('input-branch');
+      const tokenEl = document.getElementById('input-token');
+
+      if (ownerEl) ownerEl.value = state.config.owner || 'mkharwar314';
+      if (repoEl) repoEl.value = state.config.repo || 'rootlog';
+      if (branchEl) branchEl.value = state.config.branch || 'main';
+      if (tokenEl) tokenEl.value = state.config.token || '';
     }
 
-    // =========================================================================
-    // 3. INITIALIZATION & KEYBOARD SHORTCUTS
-    // =========================================================================
+    function saveConfigToStorage() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.config));
+      } catch (e) {
+        // Ignore storage quota errors
+      }
+    }
+
+    function setupTouchGestures() {
+      let startX = 0;
+      let startY = 0;
+
+      document.addEventListener('touchstart', (e) => {
+        if (!e.touches || e.touches.length !== 1) return;
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+      }, { passive: true });
+
+      document.addEventListener('touchend', (e) => {
+        if (!e.changedTouches || e.changedTouches.length !== 1) return;
+        const dx = e.changedTouches[0].clientX - startX;
+        const dy = e.changedTouches[0].clientY - startY;
+
+        if (Math.abs(dx) > 65 && Math.abs(dx) > Math.abs(dy) * 1.5 && window.innerWidth < 1024) {
+          if (startX < 36 && dx > 0) {
+            toggleSidebar(true);
+          } else if (dx < 0) {
+            toggleSidebar(false);
+          }
+        }
+      }, { passive: true });
+    }
+
     window.addEventListener('DOMContentLoaded', () => {
       loadConfigFromStorage();
       setupKeyboardShortcuts();
       setupTouchGestures();
+      setupHeroSearchDismiss();
 
       if (state.config.owner && state.config.repo) {
         connectToGitHubRepo(state.config);
@@ -684,67 +969,63 @@ nmap -sC -sV -p $PORTS -Pn $TARGET -oN detailed.nmap
       }
     });
 
-    function setupTouchGestures() {
-      let touchStartX = 0;
-      let touchStartY = 0;
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && !state.isDemoMode && state.config.owner && state.config.repo) {
+        connectToGitHubRepo(state.config, true);
+      }
+    });
 
-      document.addEventListener('touchstart', (e) => {
-        if (e.touches.length !== 1) return;
-        touchStartX = e.touches[0].clientX;
-        touchStartY = e.touches[0].clientY;
-      }, { passive: true });
-
-      document.addEventListener('touchend', (e) => {
-        if (window.innerWidth >= 1024 || e.changedTouches.length !== 1) return;
-        const deltaX = e.changedTouches[0].clientX - touchStartX;
-        const deltaY = Math.abs(e.changedTouches[0].clientY - touchStartY);
-
-        if (deltaY > 50 || Math.abs(deltaX) < 65) return;
-
-        const sidebar = document.getElementById('left-sidebar');
-        const isSidebarOpen = !sidebar.classList.contains('-translate-x-full');
-
-        if (!isSidebarOpen && touchStartX <= 36 && deltaX > 65) {
-          toggleSidebar(true);
-        } else if (isSidebarOpen && deltaX < -65) {
-          toggleSidebar(false);
-        }
-      }, { passive: true });
-
-      window.addEventListener('resize', () => {
-        const sidebar = document.getElementById('left-sidebar');
-        const backdrop = document.getElementById('mobile-backdrop');
-        if (window.innerWidth >= 1024) {
-          backdrop.classList.add('hidden');
-          sidebar.classList.remove('-translate-x-full');
-          sidebar.classList.toggle('hidden', state.sidebarCollapsed);
-        } else {
-          sidebar.classList.remove('hidden');
+    function setupHeroSearchDismiss() {
+      document.addEventListener('click', (e) => {
+        const wrapper = document.getElementById('hero-search-wrapper');
+        if (wrapper && !wrapper.contains(e.target)) {
+          closeHeroSearchResults();
         }
       });
     }
 
     function setupKeyboardShortcuts() {
       document.addEventListener('keydown', (e) => {
-        const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
-        const isTyping = tag === 'input' || tag === 'textarea' || (e.target && e.target.isContentEditable);
+        const tag = (e.target.tagName || '').toLowerCase();
+        const isTyping = tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable;
 
-        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        if ((e.key === '/' && !isTyping) || ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k')) {
           e.preventDefault();
           focusSearchInput();
           return;
         }
 
-        if (e.key === '/' && !isTyping) {
+        if (e.key.toLowerCase() === 'g' && !isTyping && !e.metaKey && !e.ctrlKey && !e.altKey) {
           e.preventDefault();
-          focusSearchInput();
+          toggleGraphView();
+          return;
+        }
+
+        if (e.key === '[' && !isTyping && !e.metaKey && !e.ctrlKey) {
+          e.preventDefault();
+          switchNoteByOffset(-1);
+          return;
+        }
+
+        if (e.key === ']' && !isTyping && !e.metaKey && !e.ctrlKey) {
+          e.preventDefault();
+          switchNoteByOffset(1);
           return;
         }
 
         if (e.key === 'Escape') {
+          const dropdown = document.getElementById('hero-search-dropdown');
+          if (dropdown && !dropdown.classList.contains('hidden')) {
+            closeHeroSearchResults();
+            return;
+          }
           const modal = document.getElementById('setup-modal');
-          if (!modal.classList.contains('hidden')) {
+          if (modal && !modal.classList.contains('hidden')) {
             closeSetupModal();
+            return;
+          }
+          if (state.graphOpen) {
+            toggleGraphView(false);
             return;
           }
           if (window.innerWidth < 1024) {
@@ -755,153 +1036,229 @@ nmap -sC -sV -p $PORTS -Pn $TARGET -oN detailed.nmap
     }
 
     function focusSearchInput() {
-      if (window.innerWidth < 1024) {
-        toggleSidebar(true);
-      } else if (state.sidebarCollapsed) {
-        toggleSidebar(true);
+      if (state.graphOpen) {
+        toggleGraphView(false);
+      }
+      const heroInput = document.getElementById('hero-search-input');
+      if (heroInput) {
+        heroInput.focus();
+        heroInput.select();
+        openHeroSearchResults();
+        return;
       }
       const input = document.getElementById('search-input');
-      input.focus();
-      input.select();
-    }
-
-    function loadConfigFromStorage() {
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          state.config = {
-            owner: parsed.owner || DEFAULT_CONFIG.owner,
-            repo: parsed.repo || DEFAULT_CONFIG.repo,
-            branch: parsed.branch || DEFAULT_CONFIG.branch,
-            token: parsed.token || ''
-          };
-        } else {
-          state.config = { ...DEFAULT_CONFIG };
-        }
-      } catch (err) {
-        state.config = { ...DEFAULT_CONFIG };
+      if (input) {
+        input.focus();
+        input.select();
       }
-      syncFormWithState();
-    }
-
-    function saveConfigToStorage() {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.config));
-      } catch (err) {
-        console.warn('Unable to persist config:', err);
-      }
-    }
-
-    function syncFormWithState() {
-      document.getElementById('input-owner').value = state.config.owner || DEFAULT_CONFIG.owner;
-      document.getElementById('input-repo').value = state.config.repo || DEFAULT_CONFIG.repo;
-      document.getElementById('input-branch').value = state.config.branch || DEFAULT_CONFIG.branch;
-      document.getElementById('input-token').value = state.config.token || '';
     }
 
     // =========================================================================
-    // 4. GITHUB REPOSITORY SYNC
+    // 4. GITHUB REST API INTEGRATION
     // =========================================================================
     function getGitHubHeaders() {
-      const headers = { 'Accept': 'application/vnd.github+json' };
-      if (state.config.token && state.config.token.trim().length > 0) {
-        headers['Authorization'] = `Bearer ${state.config.token.trim()}`;
+      const headers = {
+        Accept: 'application/vnd.github.v3+json'
+      };
+      if (state.config.token && state.config.token.trim()) {
+        headers.Authorization = `Bearer ${state.config.token.trim()}`;
       }
       return headers;
     }
 
-    async function fetchRepoTreeResponse(owner, repo, branch) {
-      const treeUrl = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/trees/${encodeURIComponent(branch)}?recursive=1&_t=${Date.now()}`;
-      return fetch(treeUrl, { headers: getGitHubHeaders(), cache: 'no-store' });
-    }
-
-    async function connectToGitHubRepo(cfg, preserveActiveNote = false) {
-      const owner = cfg.owner.trim();
-      const repo = cfg.repo.trim();
+    async function connectToGitHubRepo(cfg, silent = false) {
+      const owner = (cfg.owner || '').trim();
+      const repo = (cfg.repo || '').trim();
       let branch = (cfg.branch || 'main').trim();
-      const previousPath = preserveActiveNote ? state.activePath : null;
 
       if (!owner || !repo) {
         activateDemoMode(false);
         return;
       }
 
-      document.getElementById('header-repo-name').textContent = repo;
-      setLoadingState(true);
-      hideBanner();
+      const previousPath = state.activePath;
+      if (!silent) {
+        setLoadingState(true);
+      }
 
       try {
-        let response = await fetchRepoTreeResponse(owner, repo, branch);
+        const headers = getGitHubHeaders();
+        let treeUrl = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/trees/${encodeURIComponent(branch)}?recursive=1`;
+        let res = await fetch(treeUrl, { headers, cache: 'no-store' });
 
-        // Automatic fallback from 'main' to 'master'
-        if (response.status === 404 && branch === 'main') {
-          const fallbackRes = await fetchRepoTreeResponse(owner, repo, 'master');
-          if (fallbackRes.ok) {
-            response = fallbackRes;
-            branch = 'master';
-            state.config.branch = 'master';
-            saveConfigToStorage();
-            syncFormWithState();
-          }
+        // Auto-fallback from main -> master if needed
+        if (res.status === 404 && branch === 'main') {
+          branch = 'master';
+          treeUrl = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/trees/master?recursive=1`;
+          res = await fetch(treeUrl, { headers, cache: 'no-store' });
         }
 
-        if (!response.ok) {
-          if (response.status === 403 || response.status === 429) {
-            throw new Error(`GitHub API rate limit reached (${response.status}). Add a Personal Access Token in settings.`);
-          } else if (response.status === 404) {
-            throw new Error(`Private or missing repository "${owner}/${repo}". Click settings (⚙) to add a Personal Access Token.`);
-          } else {
-            throw new Error(`GitHub API error (${response.status}).`);
+        if (!res.ok) {
+          if (res.status === 404) {
+            throw new Error(`Repository "${owner}/${repo}" not found or is private (add a token in settings).`);
           }
+          if (res.status === 401 || res.status === 403) {
+            throw new Error('GitHub API access denied or rate-limited. Check your Personal Access Token.');
+          }
+          throw new Error(`GitHub API error (${res.status}).`);
         }
 
-        const data = await response.json();
-        const treeItems = Array.isArray(data.tree) ? data.tree : [];
-
-        const noteFiles = treeItems
+        const data = await res.json();
+        const noteFiles = (data.tree || [])
           .filter(item => item.type === 'blob' && /\.(md|markdown|mdx|txt)$/i.test(item.path))
-          .map(item => ({
-            path: item.path,
-            sha: item.sha,
-            url: item.url
-          }))
+          .map(item => ({ path: item.path, sha: item.sha }))
           .sort((a, b) => a.path.localeCompare(b.path));
 
         if (noteFiles.length === 0) {
           throw new Error(`No Markdown or text notes found in "${owner}/${repo}".`);
         }
 
-        const previousExpanded = new Set(state.expandedFolders);
         state.isDemoMode = false;
-        state.files = noteFiles;
-        state.contentCache = {};
+        state.config = { ...cfg, owner, repo, branch };
+        saveConfigToStorage();
 
-        // Preserve open folders on sync, or expand top-level directories on initial load
-        if (preserveActiveNote && previousExpanded.size > 0) {
-          state.expandedFolders = previousExpanded;
-        } else {
-          state.expandedFolders = new Set();
-          noteFiles.forEach(f => {
-            const parts = f.path.split('/');
-            if (parts.length > 1) {
-              state.expandedFolders.add(parts[0]);
-            }
-          });
-        }
+        // Invalidate stale cache entries whose SHA changed
+        const newShaMap = new Map(noteFiles.map(f => [f.path, f.sha]));
+        Object.keys(state.contentCache).forEach(cachedPath => {
+          if (!newShaMap.has(cachedPath)) {
+            delete state.contentCache[cachedPath];
+          }
+        });
+        state.files = noteFiles;
+
+        const headerRepoEl = document.getElementById('header-repo-name');
+        if (headerRepoEl) headerRepoEl.textContent = repo;
+        hideBanner();
+        setLoadingState(false);
 
         renderFileTree();
+        updateNoteSwitcherUI();
 
         const targetNote =
           (previousPath && noteFiles.find(f => f.path === previousPath)) ||
           noteFiles.find(f => /(^|\/)readme\.md$/i.test(f.path)) ||
           noteFiles[0];
-        await selectNote(targetNote.path);
+        await selectNote(targetNote.path, silent);
+
+        if (state.graphOpen) {
+          openGraphAndIndex();
+        }
       } catch (error) {
         setLoadingState(false);
-        showBanner(`${error.message} Showing sample notes.`);
-        activateDemoMode(false, true);
+        if (!silent) {
+          showBanner(`${error.message} Showing sample notes.`);
+          activateDemoMode(false, true);
+        }
       }
+    }
+
+    function refreshRepository() {
+      state.contentCache = {};
+      if (state.config.owner && state.config.repo) {
+        showToast('Syncing repository...');
+        connectToGitHubRepo(state.config);
+      } else {
+        activateDemoMode(true);
+      }
+    }
+
+    async function fetchNoteContent(path) {
+      if (state.isDemoMode) {
+        return state.contentCache[path] || '';
+      }
+      if (Object.prototype.hasOwnProperty.call(state.contentCache, path)) {
+        return state.contentCache[path];
+      }
+
+      const { owner, repo, branch } = state.config;
+      const encodedPath = path.split('/').map(encodeURIComponent).join('/');
+      const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encodedPath}?ref=${encodeURIComponent(branch)}`;
+
+      const res = await fetch(url, {
+        headers: {
+          ...getGitHubHeaders(),
+          Accept: 'application/vnd.github.v3.raw'
+        },
+        cache: 'no-store'
+      });
+
+      if (!res.ok) {
+        throw new Error(`Failed to fetch ${path} (${res.status})`);
+      }
+
+      const text = await res.text();
+      state.contentCache[path] = text;
+      return text;
+    }
+
+    async function discoverUserRepos() {
+      const ownerInput = document.getElementById('input-owner');
+      const tokenInput = document.getElementById('input-token');
+      const pickerBox = document.getElementById('repo-picker-box');
+      const pickerList = document.getElementById('repo-picker-list');
+
+      const owner = (ownerInput ? ownerInput.value : '').trim() || 'mkharwar314';
+      const token = (tokenInput ? tokenInput.value : '').trim();
+
+      if (!pickerBox || !pickerList) return;
+
+      pickerBox.classList.remove('hidden');
+      pickerList.innerHTML = `<div class="px-2 py-1.5 text-muted">Fetching repositories...</div>`;
+
+      try {
+        const headers = { Accept: 'application/vnd.github.v3+json' };
+        if (token) headers.Authorization = `Bearer ${token}`;
+
+        const endpoint = token
+          ? 'https://api.github.com/user/repos?per_page=100&sort=updated'
+          : `https://api.github.com/users/${encodeURIComponent(owner)}/repos?per_page=100&sort=updated`;
+
+        const res = await fetch(endpoint, { headers, cache: 'no-store' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const repos = await res.json();
+        if (!Array.isArray(repos) || repos.length === 0) {
+          pickerList.innerHTML = `<div class="px-2 py-1.5 text-muted">No repositories found</div>`;
+          return;
+        }
+
+        pickerList.innerHTML = repos.map(r => `
+          <button
+            type="button"
+            onclick="pickDiscoveredRepo('${escapeHtml(r.owner.login)}', '${escapeHtml(r.name)}', '${escapeHtml(r.default_branch || 'main')}')"
+            class="w-full text-left px-2 py-1.5 rounded hover:bg-surface text-ink flex items-center justify-between gap-2 transition"
+          >
+            <span class="truncate">${escapeHtml(r.name)}</span>
+            <span class="text-[10px] text-muted shrink-0">${r.private ? 'private' : 'public'}</span>
+          </button>
+        `).join('');
+      } catch (err) {
+        pickerList.innerHTML = `<div class="px-2 py-1.5 text-muted">Could not list repos (${escapeHtml(err.message)})</div>`;
+      }
+    }
+
+    function pickDiscoveredRepo(owner, repo, branch) {
+      const ownerEl = document.getElementById('input-owner');
+      const repoEl = document.getElementById('input-repo');
+      const branchEl = document.getElementById('input-branch');
+      const pickerBox = document.getElementById('repo-picker-box');
+
+      if (ownerEl) ownerEl.value = owner;
+      if (repoEl) repoEl.value = repo;
+      if (branchEl) branchEl.value = branch || 'main';
+      if (pickerBox) pickerBox.classList.add('hidden');
+    }
+
+    function saveAndConnectRepo(e) {
+      e.preventDefault();
+      const owner = (document.getElementById('input-owner')?.value || '').trim();
+      const repo = (document.getElementById('input-repo')?.value || '').trim();
+      const branch = (document.getElementById('input-branch')?.value || 'main').trim() || 'main';
+      const token = (document.getElementById('input-token')?.value || '').trim();
+
+      state.contentCache = {};
+      closeSetupModal();
+      connectToGitHubRepo({ owner, repo, branch, token });
     }
 
     function activateDemoMode(showNotification = true, keepBanner = false) {
@@ -913,10 +1270,12 @@ nmap -sC -sV -p $PORTS -Pn $TARGET -oN detailed.nmap
       });
       state.expandedFolders = new Set(['Guides']);
 
-      document.getElementById('header-repo-name').textContent = state.config.repo || 'rootlog';
+      const headerRepoEl = document.getElementById('header-repo-name');
+      if (headerRepoEl) headerRepoEl.textContent = state.config.repo || 'rootlog';
       if (!keepBanner) hideBanner();
 
       renderFileTree();
+      updateNoteSwitcherUI();
       selectNote('README.md');
 
       if (showNotification) {
@@ -925,166 +1284,195 @@ nmap -sC -sV -p $PORTS -Pn $TARGET -oN detailed.nmap
       }
     }
 
-    async function refreshRepository(silent = false) {
-      if (!silent) showToast('Syncing latest notes...');
-      await connectToGitHubRepo(state.config, true);
-      if (!silent) showToast('Up to date');
-    }
-
-    // Automatically re-sync when switching back to this tab after pushing to GitHub
-    let lastAutoSync = Date.now();
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && !state.isDemoMode && Date.now() - lastAutoSync > 15000) {
-        lastAutoSync = Date.now();
-        refreshRepository(true);
-      }
-    });
-
     // =========================================================================
-    // 5. NOTE LOADING & RICH MARKDOWN RENDERING
+    // 5. NOTE SELECTION, FRONTMATTER, WIKILINKS & MARKDOWN RENDERING
     // =========================================================================
-    async function selectNote(filePath) {
-      state.activePath = filePath;
+    async function selectNote(path, preserveScroll = false) {
+      if (!path) return;
+
+      state.activePath = path;
       state.forceMarkdownTxt = false;
+
+      // Expand parent folders in sidebar
+      const segments = path.split('/');
+      for (let i = 1; i < segments.length; i++) {
+        state.expandedFolders.add(segments.slice(0, i).join('/'));
+      }
+
+      const breadcrumbEl = document.getElementById('breadcrumb-path');
+      if (breadcrumbEl) breadcrumbEl.textContent = path;
+
+      const ghLink = document.getElementById('open-github-link');
+      if (ghLink) {
+        const { owner, repo, branch } = state.config;
+        ghLink.href = state.isDemoMode
+          ? `https://github.com/${owner || 'mkharwar314'}/${repo || 'rootlog'}`
+          : `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/blob/${encodeURIComponent(branch)}/${path.split('/').map(encodeURIComponent).join('/')}`;
+      }
 
       if (state.viewMode !== 'rendered') {
         setViewMode('rendered');
       }
 
       renderFileTree();
+      updateNoteSwitcherUI();
+      closeHeroSearchResults();
 
       if (window.innerWidth < 1024) {
         toggleSidebar(false);
       }
 
-      const parts = filePath.split('/');
-      const fileName = parts[parts.length - 1];
-      document.getElementById('breadcrumb-path').textContent = filePath;
-      document.getElementById('note-display-title').textContent = fileName.replace(/\.(md|markdown|mdx|txt)$/i, '');
+      setLoadingState(true);
+      try {
+        const rawText = await fetchNoteContent(path);
+        setLoadingState(false);
+        renderCurrentDocument(path, rawText);
 
-      const ghLink = document.getElementById('open-github-link');
-      if (state.isDemoMode) {
-        ghLink.href = `https://github.com/${encodeURIComponent(state.config.owner || 'mkharwar314')}/${encodeURIComponent(state.config.repo || 'rootlog')}`;
-      } else {
-        const encodedPath = filePath.split('/').map(encodeURIComponent).join('/');
-        ghLink.href = `https://github.com/${encodeURIComponent(state.config.owner)}/${encodeURIComponent(state.config.repo)}/blob/${encodeURIComponent(state.config.branch || 'main')}/${encodedPath}`;
+        if (!preserveScroll) {
+          const scrollContainer = document.getElementById('reader-scroll-container');
+          if (scrollContainer) scrollContainer.scrollTop = 0;
+        }
+      } catch (err) {
+        setLoadingState(false);
+        const titleEl = document.getElementById('note-display-title');
+        const mdEl = document.getElementById('markdown-output');
+        if (titleEl) titleEl.textContent = path.split('/').pop();
+        if (mdEl) {
+          mdEl.innerHTML = `<p class="text-muted text-sm">Unable to load note: ${escapeHtml(err.message)}</p>`;
+        }
+      }
+    }
+
+    function parseFrontmatter(raw) {
+      const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+      if (!match) {
+        return { meta: {}, body: raw };
+      }
+      const meta = {};
+      match[1].split(/\r?\n/).forEach(line => {
+        const idx = line.indexOf(':');
+        if (idx > 0) {
+          const key = line.slice(0, idx).trim().toLowerCase();
+          let val = line.slice(idx + 1).trim();
+          val = val.replace(/^["']|["']$/g, '');
+          meta[key] = val;
+        }
+      });
+      return { meta, body: raw.slice(match[0].length) };
+    }
+
+    function resolveWikiTarget(target) {
+      const cleanTarget = target.split('#')[0].trim().replace(/\.md$/i, '').toLowerCase();
+      if (!cleanTarget) return null;
+
+      // Exact path match (with or without .md)
+      const exact = state.files.find(f => f.path.replace(/\.(md|markdown|mdx)$/i, '').toLowerCase() === cleanTarget);
+      if (exact) return exact.path;
+
+      // Filename basename match
+      const baseMatch = state.files.find(f => {
+        const base = f.path.split('/').pop().replace(/\.(md|markdown|mdx)$/i, '').toLowerCase();
+        return base === cleanTarget;
+      });
+      return baseMatch ? baseMatch.path : null;
+    }
+
+    function renderCurrentDocument(path, rawText) {
+      const { meta, body } = parseFrontmatter(rawText);
+      const fileName = path.split('/').pop();
+      const fallbackTitle = fileName.replace(/\.(md|markdown|mdx|txt)$/i, '');
+
+      const titleEl = document.getElementById('note-display-title');
+      if (titleEl) titleEl.textContent = meta.title || fallbackTitle;
+
+      // Subtle inline frontmatter metadata line
+      const metaLineEl = document.getElementById('frontmatter-meta-line');
+      if (metaLineEl) {
+        const parts = [];
+        if (meta.date) parts.push(meta.date);
+        if (meta.category) parts.push(meta.category);
+        if (meta.tags) {
+          const cleanTags = meta.tags
+            .replace(/^\[|\]$/g, '')
+            .split(',')
+            .map(t => t.trim())
+            .filter(Boolean)
+            .map(t => (t.startsWith('#') ? t : `#${t}`))
+            .join(' ');
+          if (cleanTags) parts.push(cleanTags);
+        }
+        if (parts.length > 0) {
+          metaLineEl.textContent = parts.join(' · ');
+          metaLineEl.classList.remove('hidden');
+        } else {
+          metaLineEl.classList.add('hidden');
+          metaLineEl.textContent = '';
+        }
       }
 
-      if (state.contentCache[filePath] !== undefined) {
-        renderNoteContent(filePath, state.contentCache[filePath]);
+      const rawEl = document.getElementById('raw-output');
+      if (rawEl) rawEl.textContent = rawText;
+
+      const isTxt = /\.txt$/i.test(path);
+      const txtNotice = document.getElementById('txt-render-notice');
+      const forceBtn = document.getElementById('btn-force-md');
+      if (txtNotice) txtNotice.classList.toggle('hidden', !isTxt);
+      if (forceBtn) {
+        forceBtn.textContent = state.forceMarkdownTxt ? 'View as plain text' : 'Render as Markdown';
+      }
+
+      const mdOutput = document.getElementById('markdown-output');
+      if (!mdOutput) return;
+
+      if (isTxt && !state.forceMarkdownTxt) {
+        mdOutput.innerHTML = `<pre class="bg-sidebar border border-hairline rounded-md p-4 overflow-x-auto font-mono text-xs text-ink/90 leading-relaxed whitespace-pre-wrap break-words"><code>${escapeHtml(body)}</code></pre>`;
         return;
       }
 
-      setLoadingState(true);
-      try {
-        const encodedPath = filePath.split('/').map(encodeURIComponent).join('/');
-        const contentUrl = `https://api.github.com/repos/${encodeURIComponent(state.config.owner)}/${encodeURIComponent(state.config.repo)}/contents/${encodedPath}?ref=${encodeURIComponent(state.config.branch || 'main')}&_t=${Date.now()}`;
-
-        const res = await fetch(contentUrl, { headers: getGitHubHeaders(), cache: 'no-store' });
-        if (!res.ok) {
-          throw new Error(`Unable to load "${filePath}" (${res.status})`);
+      // Replace Obsidian [[WikiLinks]] with internal anchor tags before Marked parsing
+      const preprocessed = body.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_, target, alias) => {
+        const label = (alias || target.split('/').pop()).trim();
+        const resolved = resolveWikiTarget(target);
+        if (resolved) {
+          return `<a href="#note:${encodeURIComponent(resolved)}" class="wikilink-pill" data-note-path="${escapeHtml(resolved)}">${escapeHtml(label)}</a>`;
         }
+        return `<span class="wikilink-pill opacity-75">${escapeHtml(label)}</span>`;
+      });
 
-        const data = await res.json();
-        let decodedContent = '';
+      let html = typeof marked !== 'undefined'
+        ? marked.parse(preprocessed, { gfm: true, breaks: false })
+        : `<pre>${escapeHtml(preprocessed)}</pre>`;
 
-        if (data.encoding === 'base64' && data.content) {
-          decodedContent = decodeBase64UTF8(data.content);
-        } else if (data.download_url) {
-          const rawRes = await fetch(data.download_url);
-          decodedContent = await rawRes.text();
-        }
-
-        state.contentCache[filePath] = decodedContent;
-        renderNoteContent(filePath, decodedContent);
-      } catch (err) {
-        setLoadingState(false);
-        showBanner(err.message);
+      if (typeof DOMPurify !== 'undefined') {
+        html = DOMPurify.sanitize(html, {
+          ADD_ATTR: ['data-note-path', 'target', 'rel']
+        });
       }
+
+      mdOutput.innerHTML = html;
+      enhanceRenderedMarkdown(mdOutput, path);
     }
 
-    function decodeBase64UTF8(base64Str) {
-      const cleaned = base64Str.replace(/\s/g, '');
-      const binaryString = atob(cleaned);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      return new TextDecoder('utf-8').decode(bytes);
-    }
-
-    function toggleForceMarkdownOnTxt() {
-      if (!state.activePath || state.contentCache[state.activePath] === undefined) return;
-      state.forceMarkdownTxt = !state.forceMarkdownTxt;
-      renderNoteContent(state.activePath, state.contentCache[state.activePath]);
-    }
-
-    function resolveRepoRelativePath(baseFilePath, relativeUrl) {
-      if (!relativeUrl || /^(https?:|data:|mailto:|#)/i.test(relativeUrl)) {
-        return relativeUrl;
-      }
-      const baseParts = baseFilePath.split('/');
-      baseParts.pop();
-      const relParts = relativeUrl.replace(/^\.\//, '').split('/');
-
-      for (const segment of relParts) {
-        if (segment === '..') {
-          baseParts.pop();
-        } else if (segment !== '.' && segment !== '') {
-          baseParts.push(segment);
-        }
-      }
-      return baseParts.join('/');
-    }
-
-    function transformGitHubCallouts(container) {
-      const labels = {
-        NOTE: { cls: 'callout-note', label: 'Note' },
-        TIP: { cls: 'callout-tip', label: 'Tip' },
-        IMPORTANT: { cls: 'callout-important', label: 'Important' },
-        WARNING: { cls: 'callout-warning', label: 'Warning' },
-        CAUTION: { cls: 'callout-caution', label: 'Caution' }
-      };
-
+    function enhanceRenderedMarkdown(container, notePath) {
+      // 1. Transform GitHub Callout Blockquotes (> [!NOTE], > [!TIP], etc.)
       container.querySelectorAll('blockquote').forEach(bq => {
         const firstP = bq.querySelector('p');
         if (!firstP) return;
-
-        const match = firstP.innerHTML.match(/^\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*(?:<br\s*\/?>|\n)?/i);
-        if (!match) return;
-
-        const type = match[1].toUpperCase();
-        const cfg = labels[type] || labels.NOTE;
-
-        firstP.innerHTML = firstP.innerHTML.replace(match[0], '').trim();
-        if (!firstP.innerHTML) firstP.remove();
-
-        const wrapper = document.createElement('div');
-        wrapper.className = `markdown-callout ${cfg.cls}`;
-
-        const titleEl = document.createElement('div');
-        titleEl.className = 'markdown-callout-title';
-        titleEl.textContent = cfg.label;
-
-        wrapper.appendChild(titleEl);
-        while (bq.firstChild) {
-          wrapper.appendChild(bq.firstChild);
+        const match = firstP.innerHTML.match(/^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*(?:<br\s*\/?>|\n)?/i);
+        if (match) {
+          const type = match[1].toUpperCase();
+          firstP.innerHTML = firstP.innerHTML.slice(match[0].length);
+          const wrapper = document.createElement('div');
+          wrapper.className = 'markdown-callout';
+          wrapper.innerHTML = `<div class="markdown-callout-title">${type}</div>`;
+          while (bq.firstChild) {
+            wrapper.appendChild(bq.firstChild);
+          }
+          bq.replaceWith(wrapper);
         }
-        bq.replaceWith(wrapper);
-      });
-    }
-
-    function enhanceRenderedDOM(container, filePath) {
-      transformGitHubCallouts(container);
-
-      container.querySelectorAll('a[data-wikilink]').forEach(wLink => {
-        const targetRaw = wLink.getAttribute('data-wikilink');
-        wLink.onclick = (e) => {
-          e.preventDefault();
-          openWikiLinkTarget(targetRaw);
-        };
       });
 
+      // 2. Wrap tables for responsive horizontal scrolling
       container.querySelectorAll('table').forEach(table => {
         if (table.parentElement && table.parentElement.classList.contains('markdown-table-wrap')) return;
         const wrap = document.createElement('div');
@@ -1093,372 +1481,376 @@ nmap -sC -sV -p $PORTS -Pn $TARGET -oN detailed.nmap
         wrap.appendChild(table);
       });
 
-      container.querySelectorAll('img').forEach(img => {
-        const src = img.getAttribute('src');
-        if (src && !/^(https?:|data:)/i.test(src) && !state.isDemoMode && state.config.owner && state.config.repo) {
-          const resolved = resolveRepoRelativePath(filePath, src);
-          const encodedPath = resolved.split('/').map(encodeURIComponent).join('/');
-          if (state.config.token && state.config.token.trim()) {
-            // Fetch private repository images securely via GitHub Contents API
-            const apiImgUrl = `https://api.github.com/repos/${encodeURIComponent(state.config.owner)}/${encodeURIComponent(state.config.repo)}/contents/${encodedPath}?ref=${encodeURIComponent(state.config.branch || 'main')}`;
-            fetch(apiImgUrl, {
-              headers: {
-                ...getGitHubHeaders(),
-                'Accept': 'application/vnd.github.raw+json'
-              }
-            })
-              .then(r => r.ok ? r.blob() : null)
-              .then(blob => {
-                if (blob) img.src = URL.createObjectURL(blob);
-              })
-              .catch(() => {});
-          } else {
-            img.src = `https://raw.githubusercontent.com/${encodeURIComponent(state.config.owner)}/${encodeURIComponent(state.config.repo)}/${encodeURIComponent(state.config.branch || 'main')}/${encodedPath}`;
-          }
-        }
-      });
-
-      container.querySelectorAll('a:not([data-wikilink])').forEach(link => {
-        const href = link.getAttribute('href');
-        if (!href || href.startsWith('#')) return;
-
-        if (!/^(https?:|mailto:)/i.test(href)) {
-          const resolved = resolveRepoRelativePath(filePath, href);
-          const matchedNote = state.files.find(f => f.path.toLowerCase() === resolved.toLowerCase());
-          if (matchedNote) {
-            link.href = '#';
-            link.onclick = (e) => {
-              e.preventDefault();
-              selectNote(matchedNote.path);
-            };
-            return;
-          } else if (!state.isDemoMode && state.config.owner && state.config.repo) {
-            const encodedPath = resolved.split('/').map(encodeURIComponent).join('/');
-            link.href = `https://github.com/${encodeURIComponent(state.config.owner)}/${encodeURIComponent(state.config.repo)}/blob/${encodeURIComponent(state.config.branch || 'main')}/${encodedPath}`;
-          }
-        }
-
-        link.setAttribute('target', '_blank');
-        link.setAttribute('rel', 'noopener noreferrer');
-      });
-
-      container.querySelectorAll('pre code').forEach((block) => {
+      // 3. Syntax highlight code blocks & attach minimal copy button
+      container.querySelectorAll('pre code').forEach(block => {
         if (typeof hljs !== 'undefined') {
-          hljs.highlightElement(block);
-        }
-      });
-      injectCodeCopyButtons(container);
-    }
-
-    function parseYamlFrontmatter(rawText) {
-      const fmMatch = rawText.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
-      if (!fmMatch) {
-        return { metadata: null, body: rawText };
-      }
-
-      const yamlBlock = fmMatch[1];
-      const body = rawText.slice(fmMatch[0].length);
-      const metadata = {};
-      let currentArrayKey = null;
-
-      yamlBlock.split(/\r?\n/).forEach(line => {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('#')) return;
-
-        if (trimmed.startsWith('- ') && currentArrayKey) {
-          const itemVal = trimmed.slice(2).trim().replace(/^['"]|['"]$/g, '');
-          if (!Array.isArray(metadata[currentArrayKey])) {
-            metadata[currentArrayKey] = [];
+          try {
+            hljs.highlightElement(block);
+          } catch (e) {
+            // Ignore unknown languages
           }
-          metadata[currentArrayKey].push(itemVal);
+        }
+        const pre = block.parentElement;
+        if (!pre || pre.querySelector('.copy-code-btn')) return;
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'copy-code-btn absolute top-2 right-2 px-2.5 py-1 sm:px-2 sm:py-0.5 rounded bg-canvas/90 hover:bg-surface active:bg-surface border border-hairline text-[11px] sm:text-[10px] font-mono text-muted hover:text-accent transition';
+        btn.textContent = 'copy';
+        btn.addEventListener('click', () => {
+          copyTextFallback(block.innerText);
+          btn.textContent = 'copied';
+          setTimeout(() => { btn.textContent = 'copy'; }, 1400);
+        });
+        pre.appendChild(btn);
+      });
+
+      // 4. Resolve internal links & WikiLinks
+      container.querySelectorAll('a').forEach(anchor => {
+        const directNote = anchor.getAttribute('data-note-path');
+        if (directNote) {
+          anchor.addEventListener('click', (e) => {
+            e.preventDefault();
+            selectNote(directNote);
+          });
           return;
         }
 
-        const kvMatch = line.match(/^([A-Za-z0-9_-]+)\s*:\s*(.*)$/);
-        if (kvMatch) {
-          const key = kvMatch[1].toLowerCase();
-          const val = kvMatch[2].trim();
+        const href = anchor.getAttribute('href') || '';
+        if (!href || href.startsWith('#')) return;
 
-          if (val === '') {
-            currentArrayKey = key;
-            metadata[key] = [];
-          } else if (val.startsWith('[') && val.endsWith(']')) {
-            currentArrayKey = null;
-            metadata[key] = val
-              .slice(1, -1)
-              .split(',')
-              .map(s => s.trim().replace(/^['"]|['"]$/g, ''))
-              .filter(Boolean);
-          } else {
-            currentArrayKey = null;
-            metadata[key] = val.replace(/^['"]|['"]$/g, '');
-          }
-        }
-      });
-
-      return { metadata, body };
-    }
-
-    function renderFrontmatterHeader(filePath, metadata) {
-      const parts = filePath.split('/');
-      const defaultTitle = parts[parts.length - 1].replace(/\.(md|markdown|mdx|txt)$/i, '');
-      const titleEl = document.getElementById('note-display-title');
-      const metaLine = document.getElementById('frontmatter-meta-line');
-
-      titleEl.textContent = (metadata && metadata.title) ? metadata.title : defaultTitle;
-
-      if (!metadata || Object.keys(metadata).length === 0) {
-        metaLine.classList.add('hidden');
-        metaLine.textContent = '';
-        return;
-      }
-
-      const segments = [];
-      if (metadata.date) segments.push(String(metadata.date));
-      if (metadata.category) segments.push(String(metadata.category));
-      if (metadata.tags) {
-        const tagList = Array.isArray(metadata.tags)
-          ? metadata.tags
-          : String(metadata.tags).split(',').map(t => t.trim()).filter(Boolean);
-        if (tagList.length > 0) {
-          segments.push(tagList.map(t => `#${t.replace(/^#/, '')}`).join(' '));
-        }
-      }
-
-      if (segments.length > 0) {
-        metaLine.textContent = segments.join('  ·  ');
-        metaLine.classList.remove('hidden');
-      } else {
-        metaLine.classList.add('hidden');
-      }
-    }
-
-    function preprocessObsidianWikiLinks(markdownBody) {
-      const codeTokens = [];
-      const protectedText = markdownBody.replace(/(```[\s\S]*?```|`[^`\n]+`)/g, (match) => {
-        const token = `@@CODE_TOKEN_${codeTokens.length}@@`;
-        codeTokens.push(match);
-        return token;
-      });
-
-      const converted = protectedText.replace(/\[\[([^\]\n]+)\]\]/g, (_, inner) => {
-        const [rawTarget, rawAlias] = inner.split('|');
-        const target = (rawTarget || '').trim();
-        const label = (rawAlias || target.split('/').pop() || target).trim();
-        return `<a href="#wikilink" data-wikilink="${escapeHtml(target)}" class="wikilink-pill">${escapeHtml(label)}</a>`;
-      });
-
-      return converted.replace(/@@CODE_TOKEN_(\d+)@@/g, (_, idx) => codeTokens[Number(idx)]);
-    }
-
-    function openWikiLinkTarget(targetRaw) {
-      const cleaned = targetRaw.split('#')[0].trim().replace(/^\.\//, '');
-      const normalized = cleaned.toLowerCase();
-      const withMd = normalized.endsWith('.md') ? normalized : `${normalized}.md`;
-
-      const match =
-        state.files.find(f => f.path.toLowerCase() === normalized || f.path.toLowerCase() === withMd) ||
-        state.files.find(f => {
-          const fileName = f.path.split('/').pop().toLowerCase();
-          return fileName === normalized || fileName === withMd;
-        });
-
-      if (match) {
-        selectNote(match.path);
-      } else {
-        showToast(`Note "${cleaned}" not found`);
-      }
-    }
-
-    function renderNoteContent(filePath, rawText) {
-      setLoadingState(false);
-      document.getElementById('raw-output').textContent = rawText;
-
-      const mdContainer = document.getElementById('markdown-output');
-      const txtNotice = document.getElementById('txt-render-notice');
-      const forceMdBtn = document.getElementById('btn-force-md');
-      const isPlainTxt = /\.txt$/i.test(filePath);
-
-      if (isPlainTxt) {
-        txtNotice.classList.remove('hidden');
-        forceMdBtn.textContent = state.forceMarkdownTxt ? 'View plain text' : 'Render as Markdown';
-      } else {
-        txtNotice.classList.add('hidden');
-      }
-
-      if (isPlainTxt && !state.forceMarkdownTxt) {
-        renderFrontmatterHeader(filePath, null);
-        mdContainer.innerHTML = `<pre><code class="language-plaintext">${escapeHtml(rawText)}</code></pre>`;
-        injectCodeCopyButtons(mdContainer);
-      } else {
-        const { metadata, body } = parseYamlFrontmatter(rawText);
-        renderFrontmatterHeader(filePath, metadata);
-        const processedBody = preprocessObsidianWikiLinks(body);
-
-        let parsedHtml = '';
-        if (typeof marked !== 'undefined' && typeof marked.parse === 'function') {
-          parsedHtml = marked.parse(processedBody);
-        } else if (typeof marked === 'function') {
-          parsedHtml = marked(processedBody);
-        } else {
-          parsedHtml = `<p>${escapeHtml(processedBody)}</p>`;
+        if (/^https?:\/\//i.test(href)) {
+          anchor.target = '_blank';
+          anchor.rel = 'noopener noreferrer';
+          return;
         }
 
-        if (typeof DOMPurify !== 'undefined') {
-          parsedHtml = DOMPurify.sanitize(parsedHtml, {
-            ADD_TAGS: ['kbd', 'details', 'summary', 'input'],
-            ADD_ATTR: ['type', 'checked', 'disabled', 'open', 'target', 'rel', 'data-wikilink', 'class']
+        const resolvedRelative = resolveRelativePath(notePath, href.split('#')[0]);
+        const matchedFile = state.files.find(f => f.path.toLowerCase() === resolvedRelative.toLowerCase());
+        if (matchedFile) {
+          anchor.addEventListener('click', (e) => {
+            e.preventDefault();
+            selectNote(matchedFile.path);
           });
         }
+      });
 
-        mdContainer.innerHTML = parsedHtml;
-        enhanceRenderedDOM(mdContainer, filePath);
-      }
+      // 5. Resolve relative images (including private repository images via GitHub API)
+      container.querySelectorAll('img').forEach(img => {
+        const src = img.getAttribute('src') || '';
+        if (!src || /^https?:\/\/|^data:/i.test(src) || state.isDemoMode) return;
 
-      document.getElementById('reader-scroll-container').scrollTop = 0;
-    }
+        const resolvedImgPath = resolveRelativePath(notePath, src);
+        const { owner, repo, branch, token } = state.config;
+        const encoded = resolvedImgPath.split('/').map(encodeURIComponent).join('/');
 
-    function injectCodeCopyButtons(container) {
-      container.querySelectorAll('pre').forEach((pre) => {
-        const codeEl = pre.querySelector('code');
-        if (!codeEl) return;
-
-        const copyBtn = document.createElement('button');
-        copyBtn.type = 'button';
-        copyBtn.className = 'absolute top-2 right-2 px-2 py-0.5 rounded bg-surface/90 border border-hairline hover:border-hairlineHover text-[11px] font-mono text-prose hover:text-accent transition';
-        copyBtn.textContent = 'Copy';
-        copyBtn.onclick = () => {
-          copyTextToClipboard(codeEl.innerText);
-          copyBtn.textContent = 'Copied';
-          copyBtn.classList.add('text-teal');
-          setTimeout(() => {
-            copyBtn.textContent = 'Copy';
-            copyBtn.classList.remove('text-teal');
-          }, 1500);
-        };
-
-        pre.appendChild(copyBtn);
+        if (token && token.trim()) {
+          fetch(`https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encoded}?ref=${encodeURIComponent(branch)}`, {
+            headers: {
+              ...getGitHubHeaders(),
+              Accept: 'application/vnd.github.v3.raw'
+            }
+          })
+            .then(r => (r.ok ? r.blob() : Promise.reject()))
+            .then(blob => {
+              img.src = URL.createObjectURL(blob);
+            })
+            .catch(() => {});
+        } else {
+          img.src = `https://raw.githubusercontent.com/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/${encodeURIComponent(branch)}/${encoded}`;
+        }
       });
     }
 
+    function resolveRelativePath(baseNotePath, relHref) {
+      const baseParts = baseNotePath.split('/').slice(0, -1);
+      const relParts = decodeURIComponent(relHref).split('/');
+      for (const part of relParts) {
+        if (!part || part === '.') continue;
+        if (part === '..') {
+          baseParts.pop();
+        } else {
+          baseParts.push(part);
+        }
+      }
+      return baseParts.join('/');
+    }
+
+    function toggleRawView() {
+      setViewMode(state.viewMode === 'rendered' ? 'raw' : 'rendered');
+    }
+
+    function setViewMode(mode) {
+      state.viewMode = mode;
+      const mdEl = document.getElementById('markdown-output');
+      const rawWrap = document.getElementById('raw-output-container');
+      const btn = document.getElementById('btn-toggle-raw');
+
+      if (mdEl) mdEl.classList.toggle('hidden', mode === 'raw');
+      if (rawWrap) rawWrap.classList.toggle('hidden', mode !== 'raw');
+      if (btn) btn.textContent = mode === 'raw' ? 'rendered' : 'raw';
+    }
+
+    function toggleForceMarkdownOnTxt() {
+      state.forceMarkdownTxt = !state.forceMarkdownTxt;
+      if (state.activePath && Object.prototype.hasOwnProperty.call(state.contentCache, state.activePath)) {
+        renderCurrentDocument(state.activePath, state.contentCache[state.activePath]);
+      }
+    }
+
     // =========================================================================
-    // 6. QUIET DIRECTORY TREE & SEARCH FILTER
+    // 6. QUIET DIRECTORY TREE, HERO SEARCH & NOTES SWITCH SYSTEM
     // =========================================================================
-    function handleSearchInput(val) {
+    function handleSearchInput(val, source = 'sidebar') {
       state.searchQuery = val.trim().toLowerCase();
+      state.heroSearchIndex = -1;
+
+      const sidebarInput = document.getElementById('search-input');
+      const heroInput = document.getElementById('hero-search-input');
+      if (source !== 'sidebar' && sidebarInput && sidebarInput.value !== val) {
+        sidebarInput.value = val;
+      }
+      if (source !== 'hero' && heroInput && heroInput.value !== val) {
+        heroInput.value = val;
+      }
+
+      const hasQuery = state.searchQuery.length > 0;
       const clearBtn = document.getElementById('clear-search-btn');
-      clearBtn.classList.toggle('hidden', state.searchQuery.length === 0);
+      const heroClearBtn = document.getElementById('hero-clear-search-btn');
+      if (clearBtn) clearBtn.classList.toggle('hidden', !hasQuery);
+      if (heroClearBtn) heroClearBtn.classList.toggle('hidden', !hasQuery);
+
       renderFileTree();
+      if (source === 'hero' || hasQuery) {
+        renderHeroSearchDropdown();
+      }
     }
 
     function clearSearch() {
       const input = document.getElementById('search-input');
-      input.value = '';
-      handleSearchInput('');
+      const heroInput = document.getElementById('hero-search-input');
+      if (input) input.value = '';
+      if (heroInput) heroInput.value = '';
+      handleSearchInput('', 'clear');
+      closeHeroSearchResults();
+    }
+
+    function openHeroSearchResults() {
+      renderHeroSearchDropdown();
+    }
+
+    function closeHeroSearchResults() {
+      const dropdown = document.getElementById('hero-search-dropdown');
+      if (dropdown) dropdown.classList.add('hidden');
+      state.heroSearchIndex = -1;
+    }
+
+    function renderHeroSearchDropdown() {
+      const dropdown = document.getElementById('hero-search-dropdown');
+      const resultsEl = document.getElementById('hero-search-results');
+      if (!dropdown || !resultsEl) return;
+
+      const matches = getFilteredFiles().slice(0, 10);
+      dropdown.classList.remove('hidden');
+
+      if (matches.length === 0) {
+        resultsEl.innerHTML = `<div class="px-3.5 py-3 text-xs text-muted">No matching notes found</div>`;
+        return;
+      }
+
+      resultsEl.innerHTML = matches.map((file, idx) => {
+        const parts = file.path.split('/');
+        const title = parts[parts.length - 1].replace(/\.(md|markdown|mdx|txt)$/i, '');
+        const folder = parts.length > 1 ? parts.slice(0, -1).join('/') : 'root';
+        const isActive = file.path === state.activePath;
+        const isHighlighted = idx === state.heroSearchIndex;
+
+        return `
+          <button
+            type="button"
+            onclick="selectNote('${escapeHtml(file.path)}')"
+            class="w-full px-3.5 py-2.5 text-left flex items-center justify-between gap-3 transition ${
+              isHighlighted ? 'bg-surface' : 'hover:bg-surface/70'
+            }"
+          >
+            <div class="min-w-0">
+              <div class="text-xs font-medium truncate ${isActive ? 'text-accent' : 'text-ink'}">${escapeHtml(title)}</div>
+              <div class="text-[11px] font-mono text-muted truncate">${escapeHtml(folder)}</div>
+            </div>
+            ${isActive ? '<span class="text-[10px] font-mono text-accent shrink-0">active</span>' : ''}
+          </button>
+        `;
+      }).join('');
+    }
+
+    function handleHeroSearchKeydown(e) {
+      const matches = getFilteredFiles().slice(0, 10);
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (matches.length > 0) {
+          state.heroSearchIndex = (state.heroSearchIndex + 1) % matches.length;
+          renderHeroSearchDropdown();
+        }
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (matches.length > 0) {
+          state.heroSearchIndex = (state.heroSearchIndex - 1 + matches.length) % matches.length;
+          renderHeroSearchDropdown();
+        }
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        const picked = matches[state.heroSearchIndex >= 0 ? state.heroSearchIndex : 0];
+        if (picked) {
+          selectNote(picked.path);
+        }
+      }
+    }
+
+    function updateNoteSwitcherUI() {
+      const selectEl = document.getElementById('note-switcher-select');
+      const posEl = document.getElementById('note-position-indicator');
+      const prevBtn = document.getElementById('btn-prev-note');
+      const nextBtn = document.getElementById('btn-next-note');
+      const footerPrevBtn = document.getElementById('footer-prev-btn');
+      const footerNextBtn = document.getElementById('footer-next-btn');
+      const footerPrevTitle = document.getElementById('footer-prev-title');
+      const footerNextTitle = document.getElementById('footer-next-title');
+
+      const total = state.files.length;
+      const currentIdx = state.files.findIndex(f => f.path === state.activePath);
+
+      if (selectEl) {
+        if (total === 0) {
+          selectEl.innerHTML = `<option value="">No notes</option>`;
+        } else {
+          selectEl.innerHTML = state.files.map(f => {
+            const label = f.path.replace(/\.(md|markdown|mdx)$/i, '');
+            const selected = f.path === state.activePath ? 'selected' : '';
+            return `<option value="${escapeHtml(f.path)}" ${selected}>${escapeHtml(label)}</option>`;
+          }).join('');
+        }
+      }
+
+      if (posEl) {
+        posEl.textContent = currentIdx >= 0 ? `${currentIdx + 1} / ${total}` : `0 / ${total}`;
+      }
+
+      const hasPrev = currentIdx > 0;
+      const hasNext = currentIdx >= 0 && currentIdx < total - 1;
+
+      if (prevBtn) prevBtn.disabled = !hasPrev;
+      if (nextBtn) nextBtn.disabled = !hasNext;
+      if (footerPrevBtn) footerPrevBtn.disabled = !hasPrev;
+      if (footerNextBtn) footerNextBtn.disabled = !hasNext;
+
+      if (footerPrevTitle) {
+        footerPrevTitle.textContent = hasPrev
+          ? state.files[currentIdx - 1].path.split('/').pop().replace(/\.(md|markdown|mdx|txt)$/i, '')
+          : 'Start of vault';
+      }
+      if (footerNextTitle) {
+        footerNextTitle.textContent = hasNext
+          ? state.files[currentIdx + 1].path.split('/').pop().replace(/\.(md|markdown|mdx|txt)$/i, '')
+          : 'End of vault';
+      }
+    }
+
+    function switchNoteByOffset(offset) {
+      if (!state.files.length) return;
+      const currentIdx = state.files.findIndex(f => f.path === state.activePath);
+      const nextIdx = currentIdx + offset;
+      if (nextIdx >= 0 && nextIdx < state.files.length) {
+        selectNote(state.files[nextIdx].path);
+      }
     }
 
     function getFilteredFiles() {
       if (!state.searchQuery) return state.files;
+      const q = state.searchQuery;
       return state.files.filter(file => {
-        const pathMatch = file.path.toLowerCase().includes(state.searchQuery);
-        const cachedText = state.contentCache[file.path];
-        const contentMatch = cachedText ? cachedText.toLowerCase().includes(state.searchQuery) : false;
-        return pathMatch || contentMatch;
+        if (file.path.toLowerCase().includes(q)) return true;
+        const cached = state.contentCache[file.path];
+        return cached && cached.toLowerCase().includes(q);
       });
-    }
-
-    function buildTreeStructure(files) {
-      const root = { name: '', path: '', folders: {}, files: [] };
-
-      files.forEach(file => {
-        const parts = file.path.split('/');
-        let current = root;
-
-        for (let i = 0; i < parts.length - 1; i++) {
-          const folderName = parts[i];
-          const folderPath = parts.slice(0, i + 1).join('/');
-          if (!current.folders[folderName]) {
-            current.folders[folderName] = {
-              name: folderName,
-              path: folderPath,
-              folders: {},
-              files: []
-            };
-          }
-          current = current.folders[folderName];
-        }
-
-        current.files.push({
-          name: parts[parts.length - 1],
-          path: file.path
-        });
-      });
-
-      return root;
     }
 
     function renderFileTree() {
       const container = document.getElementById('file-tree-container');
-      const filteredFiles = getFilteredFiles();
+      if (!container) return;
 
-      if (filteredFiles.length === 0) {
-        container.innerHTML = `<p class="px-3 py-6 text-center text-xs text-muted">No matching notes</p>`;
+      const filtered = getFilteredFiles();
+      if (filtered.length === 0) {
+        container.innerHTML = `<div class="px-2.5 py-3 text-xs text-muted">No matching notes</div>`;
         return;
       }
 
-      const tree = buildTreeStructure(filteredFiles);
-      const isSearching = state.searchQuery.length > 0;
-      container.innerHTML = renderTreeNode(tree, 0, isSearching);
-    }
+      const root = { folders: {}, files: [] };
+      filtered.forEach(file => {
+        const parts = file.path.split('/');
+        let curr = root;
+        for (let i = 0; i < parts.length - 1; i++) {
+          const folderName = parts[i];
+          const folderPath = parts.slice(0, i + 1).join('/');
+          if (!curr.folders[folderName]) {
+            curr.folders[folderName] = { name: folderName, path: folderPath, folders: {}, files: [] };
+          }
+          curr = curr.folders[folderName];
+        }
+        curr.files.push(file);
+      });
 
-    function renderTreeNode(node, depth, forceExpand) {
-      let html = '';
+      const renderNode = (node, depth = 0) => {
+        let html = '';
+        const folderNames = Object.keys(node.folders).sort((a, b) => a.localeCompare(b));
 
-      const folderKeys = Object.keys(node.folders).sort((a, b) => a.localeCompare(b));
-      for (const key of folderKeys) {
-        const folder = node.folders[key];
-        const isExpanded = forceExpand || state.expandedFolders.has(folder.path);
-        const paddingLeft = depth * 12 + 8;
+        folderNames.forEach(fname => {
+          const folder = node.folders[fname];
+          const isOpen = state.searchQuery.length > 0 || state.expandedFolders.has(folder.path);
+          const padLeft = depth * 12 + 8;
 
-        html += `
-          <div>
+          html += `
+            <div>
+              <button
+                type="button"
+                onclick="toggleFolder('${escapeHtml(folder.path)}')"
+                style="padding-left: ${padLeft}px"
+                class="w-full py-2.5 sm:py-1.5 pr-2 rounded-lg sm:rounded text-left text-[13px] sm:text-xs text-prose hover:text-ink hover:bg-elevated/70 active:bg-elevated flex items-center gap-1.5 transition"
+              >
+                <span class="text-[10px] text-muted w-3.5 inline-block">${isOpen ? '▾' : '▸'}</span>
+                <span class="truncate font-medium">${escapeHtml(folder.name)}</span>
+              </button>
+              <div class="${isOpen ? '' : 'hidden'}">
+                ${renderNode(folder, depth + 1)}
+              </div>
+            </div>
+          `;
+        });
+
+        node.files.forEach(file => {
+          const label = file.path.split('/').pop().replace(/\.(md|markdown|mdx)$/i, '');
+          const isActive = file.path === state.activePath;
+          const padLeft = depth * 12 + 20;
+
+          html += `
             <button
-              onclick="toggleFolder('${escapeHtml(folder.path)}')"
-              style="padding-left: ${paddingLeft}px"
-              class="w-full flex items-center gap-1.5 py-2 lg:py-1 pr-2 rounded text-muted hover:text-ink hover:bg-elevated/70 active:bg-elevated transition text-left"
+              type="button"
+              onclick="selectNote('${escapeHtml(file.path)}')"
+              style="padding-left: ${padLeft}px"
+              class="w-full py-2.5 sm:py-1.5 pr-2 rounded-lg sm:rounded text-left text-[13px] sm:text-xs truncate block transition ${
+                isActive
+                  ? 'text-accent bg-accent/10 font-medium'
+                  : 'text-muted hover:text-ink hover:bg-elevated/60 active:bg-elevated'
+              }"
             >
-              <svg class="w-3 h-3 shrink-0 transition-transform duration-150 ${isExpanded ? 'rotate-90' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-              </svg>
-              <span class="truncate font-medium">${escapeHtml(folder.name)}</span>
+              ${escapeHtml(label)}
             </button>
-            ${isExpanded ? `<div class="border-l border-hairline/70 ml-3">${renderTreeNode(folder, depth + 1, forceExpand)}</div>` : ''}
-          </div>
-        `;
-      }
+          `;
+        });
 
-      const sortedFiles = [...node.files].sort((a, b) => a.name.localeCompare(b.name));
-      for (const file of sortedFiles) {
-        const isActive = state.activePath === file.path;
-        const paddingLeft = depth * 12 + 12;
-        const displayName = file.name.replace(/\.(md|markdown|mdx)$/i, '');
+        return html;
+      };
 
-        html += `
-          <button
-            onclick="selectNote('${escapeHtml(file.path)}')"
-            style="padding-left: ${paddingLeft}px"
-            class="relative w-full flex items-center gap-2 py-2 lg:py-1 pr-2 rounded transition text-left ${
-              isActive
-                ? 'text-accent font-medium'
-                : 'text-prose hover:text-ink'
-            }"
-          >
-            <span class="truncate">${escapeHtml(displayName)}</span>
-          </button>
-        `;
-      }
-
-      return html;
+      container.innerHTML = renderNode(root, 0);
     }
 
     function toggleFolder(folderPath) {
@@ -1471,179 +1863,334 @@ nmap -sC -sV -p $PORTS -Pn $TARGET -oN detailed.nmap
     }
 
     // =========================================================================
-    // 7. VIEW MODES
+    // 7. INTERACTIVE KNOWLEDGE GRAPH VIEW (D3.js)
     // =========================================================================
-    function toggleRawView() {
-      setViewMode(state.viewMode === 'rendered' ? 'raw' : 'rendered');
-    }
+    function toggleGraphView(forceState) {
+      const next = typeof forceState === 'boolean' ? forceState : !state.graphOpen;
+      state.graphOpen = next;
 
-    function setViewMode(mode) {
-      state.viewMode = mode;
-      const btnRaw = document.getElementById('btn-toggle-raw');
-      const mdOut = document.getElementById('markdown-output');
-      const rawOut = document.getElementById('raw-output-container');
+      const readerEl = document.getElementById('reader-scroll-container');
+      const graphEl = document.getElementById('graph-view-container');
+      const btnEl = document.getElementById('btn-toggle-graph');
 
-      if (mode === 'rendered') {
-        btnRaw.textContent = 'raw';
-        btnRaw.className = 'px-2 py-1 rounded text-muted hover:text-accent transition font-mono text-[11px]';
-        mdOut.classList.remove('hidden');
-        rawOut.classList.add('hidden');
-      } else {
-        btnRaw.textContent = 'rendered';
-        btnRaw.className = 'px-2 py-1 rounded text-accent transition font-mono text-[11px]';
-        rawOut.classList.remove('hidden');
-        mdOut.classList.add('hidden');
+      if (readerEl) readerEl.classList.toggle('hidden', next);
+      if (graphEl) graphEl.classList.toggle('hidden', !next);
+      if (btnEl) btnEl.classList.toggle('text-accent', next);
+
+      if (next) {
+        openGraphAndIndex();
+      } else if (state.graphSimulation) {
+        state.graphSimulation.stop();
       }
     }
 
+    function toggleGraphScope() {
+      state.graphLocalOnly = !state.graphLocalOnly;
+      const scopeBtn = document.getElementById('btn-graph-scope');
+      if (scopeBtn) {
+        scopeBtn.textContent = state.graphLocalOnly ? 'local note' : 'full vault';
+      }
+      renderKnowledgeGraph();
+    }
+
+    function resetGraphZoom() {
+      if (typeof d3 === 'undefined' || !state.graphZoomBehavior) return;
+      const svg = d3.select('#knowledge-graph-svg');
+      svg.transition().duration(300).call(state.graphZoomBehavior.transform, d3.zoomIdentity);
+    }
+
+    async function openGraphAndIndex() {
+      renderKnowledgeGraph();
+
+      if (state.isDemoMode || state.isIndexingGraph) return;
+      const uncached = state.files.filter(f => !Object.prototype.hasOwnProperty.call(state.contentCache, f.path));
+      if (uncached.length === 0) return;
+
+      state.isIndexingGraph = true;
+      const badge = document.getElementById('graph-indexing-badge');
+      if (badge) badge.classList.remove('hidden');
+
+      try {
+        // Index up to 40 notes in small batches to discover all links
+        const batch = uncached.slice(0, 40);
+        for (const file of batch) {
+          if (!state.graphOpen) break;
+          await fetchNoteContent(file.path).catch(() => '');
+        }
+      } finally {
+        state.isIndexingGraph = false;
+        if (badge) badge.classList.add('hidden');
+        if (state.graphOpen) {
+          renderKnowledgeGraph();
+        }
+      }
+    }
+
+    function buildGraphData() {
+      const nodes = state.files.map(f => ({
+        id: f.path,
+        label: f.path.split('/').pop().replace(/\.(md|markdown|mdx|txt)$/i, '')
+      }));
+      const nodeSet = new Set(nodes.map(n => n.id));
+      const links = [];
+      const edgeKeys = new Set();
+
+      state.files.forEach(file => {
+        const content = state.contentCache[file.path];
+        if (!content) return;
+
+        // Extract [[WikiLinks]]
+        const wikiMatches = content.matchAll(/\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]/g);
+        for (const m of wikiMatches) {
+          const resolved = resolveWikiTarget(m[1]);
+          if (resolved && resolved !== file.path && nodeSet.has(resolved)) {
+            const key = `${file.path}->${resolved}`;
+            if (!edgeKeys.has(key)) {
+              edgeKeys.add(key);
+              links.push({ source: file.path, target: resolved });
+            }
+          }
+        }
+
+        // Extract relative Markdown links [text](note.md)
+        const mdMatches = content.matchAll(/\[[^\]]+\]\(([^)#\s]+)(?:#[^)]+)?\)/g);
+        for (const m of mdMatches) {
+          const href = m[1];
+          if (/^https?:\/\//i.test(href)) continue;
+          const resolved = resolveRelativePath(file.path, href);
+          const matched = state.files.find(f => f.path.toLowerCase() === resolved.toLowerCase());
+          if (matched && matched.path !== file.path) {
+            const key = `${file.path}->${matched.path}`;
+            if (!edgeKeys.has(key)) {
+              edgeKeys.add(key);
+              links.push({ source: file.path, target: matched.path });
+            }
+          }
+        }
+      });
+
+      if (state.graphLocalOnly && state.activePath) {
+        const neighbors = new Set([state.activePath]);
+        links.forEach(l => {
+          if (l.source === state.activePath) neighbors.add(l.target);
+          if (l.target === state.activePath) neighbors.add(l.source);
+        });
+        return {
+          nodes: nodes.filter(n => neighbors.has(n.id)),
+          links: links.filter(l => neighbors.has(l.source) && neighbors.has(l.target))
+        };
+      }
+
+      return { nodes, links };
+    }
+
+    function renderKnowledgeGraph() {
+      const container = document.getElementById('graph-view-container');
+      const svgEl = document.getElementById('knowledge-graph-svg');
+      const statsEl = document.getElementById('graph-stats-label');
+      if (!container || !svgEl || typeof d3 === 'undefined') return;
+
+      const { nodes, links } = buildGraphData();
+      if (statsEl) {
+        statsEl.textContent = `${nodes.length} nodes · ${links.length} links`;
+      }
+
+      const width = container.clientWidth || 640;
+      const height = container.clientHeight || 480;
+
+      const svg = d3.select(svgEl);
+      svg.selectAll('*').remove();
+
+      const g = svg.append('g');
+      const zoom = d3.zoom()
+        .scaleExtent([0.25, 3.5])
+        .on('zoom', (event) => {
+          g.attr('transform', event.transform);
+        });
+      svg.call(zoom);
+      state.graphZoomBehavior = zoom;
+
+      if (state.graphSimulation) {
+        state.graphSimulation.stop();
+      }
+
+      const simulation = d3.forceSimulation(nodes)
+        .force('link', d3.forceLink(links).id(d => d.id).distance(85))
+        .force('charge', d3.forceManyBody().strength(-210))
+        .force('center', d3.forceCenter(width / 2, height / 2))
+        .force('collide', d3.forceCollide(24));
+
+      state.graphSimulation = simulation;
+
+      const link = g.append('g')
+        .selectAll('line')
+        .data(links)
+        .join('line')
+        .attr('stroke', '#252130')
+        .attr('stroke-width', 1.2);
+
+      const node = g.append('g')
+        .selectAll('g')
+        .data(nodes)
+        .join('g')
+        .style('cursor', 'pointer')
+        .call(
+          d3.drag()
+            .on('start', (event, d) => {
+              if (!event.active) simulation.alphaTarget(0.3).restart();
+              d.fx = d.x;
+              d.fy = d.y;
+            })
+            .on('drag', (event, d) => {
+              d.fx = event.x;
+              d.fy = event.y;
+            })
+            .on('end', (event, d) => {
+              if (!event.active) simulation.alphaTarget(0);
+              d.fx = null;
+              d.fy = null;
+            })
+        )
+        .on('click', (_, d) => {
+          toggleGraphView(false);
+          selectNote(d.id);
+        })
+        .on('mouseenter', (_, d) => {
+          const connected = new Set([d.id]);
+          links.forEach(l => {
+            const s = typeof l.source === 'object' ? l.source.id : l.source;
+            const t = typeof l.target === 'object' ? l.target.id : l.target;
+            if (s === d.id) connected.add(t);
+            if (t === d.id) connected.add(s);
+          });
+          node.attr('opacity', n => (connected.has(n.id) ? 1 : 0.25));
+          link
+            .attr('stroke', l => {
+              const s = typeof l.source === 'object' ? l.source.id : l.source;
+              const t = typeof l.target === 'object' ? l.target.id : l.target;
+              return s === d.id || t === d.id ? '#A78BFA' : '#252130';
+            })
+            .attr('stroke-opacity', l => {
+              const s = typeof l.source === 'object' ? l.source.id : l.source;
+              const t = typeof l.target === 'object' ? l.target.id : l.target;
+              return s === d.id || t === d.id ? 0.9 : 0.25;
+            });
+        })
+        .on('mouseleave', () => {
+          node.attr('opacity', 1);
+          link.attr('stroke', '#252130').attr('stroke-opacity', 1);
+        });
+
+      node.append('circle')
+        .attr('r', d => {
+          const isMobile = width < 640;
+          return d.id === state.activePath ? (isMobile ? 8 : 6.5) : (isMobile ? 6 : 4.5);
+        })
+        .attr('fill', d => (d.id === state.activePath ? '#A78BFA' : '#EAE8F0'))
+        .attr('stroke', '#0E0D12')
+        .attr('stroke-width', 1.5);
+
+      node.append('text')
+        .text(d => d.label)
+        .attr('x', 9)
+        .attr('y', 3.5)
+        .attr('fill', d => (d.id === state.activePath ? '#A78BFA' : '#A6A2B3'))
+        .style('font-family', 'Inter, sans-serif')
+        .style('font-size', '11px');
+
+      simulation.on('tick', () => {
+        link
+          .attr('x1', d => d.source.x)
+          .attr('y1', d => d.source.y)
+          .attr('x2', d => d.target.x)
+          .attr('y2', d => d.target.y);
+
+        node.attr('transform', d => `translate(${d.x},${d.y})`);
+      });
+    }
+
     // =========================================================================
-    // 8. SIDEBAR, MODAL & UTILITIES
+    // 8. UI HELPERS (SIDEBAR, MODAL, TOAST, CLIPBOARD)
     // =========================================================================
     function toggleSidebar(forceState) {
       const sidebar = document.getElementById('left-sidebar');
       const backdrop = document.getElementById('mobile-backdrop');
+      if (!sidebar) return;
 
-      if (window.innerWidth < 1024) {
-        const isOpen = !sidebar.classList.contains('-translate-x-full');
-        const nextOpen = typeof forceState === 'boolean' ? forceState : !isOpen;
-        sidebar.classList.toggle('-translate-x-full', !nextOpen);
-        backdrop.classList.toggle('hidden', !nextOpen);
+      const isDesktop = window.innerWidth >= 1024;
+      if (isDesktop) {
+        const nextCollapsed = typeof forceState === 'boolean' ? !forceState : !state.sidebarCollapsed;
+        state.sidebarCollapsed = nextCollapsed;
+        sidebar.classList.toggle('lg:hidden', nextCollapsed);
+        if (state.graphOpen) renderKnowledgeGraph();
       } else {
-        const nextVisible = typeof forceState === 'boolean' ? forceState : state.sidebarCollapsed;
-        state.sidebarCollapsed = !nextVisible;
-        sidebar.classList.toggle('hidden', state.sidebarCollapsed);
+        const isCurrentlyOpen = !sidebar.classList.contains('-translate-x-full');
+        const nextOpen = typeof forceState === 'boolean' ? forceState : !isCurrentlyOpen;
+        sidebar.classList.toggle('-translate-x-full', !nextOpen);
+        if (backdrop) backdrop.classList.toggle('hidden', !nextOpen);
       }
     }
 
     function openSetupModal() {
-      syncFormWithState();
       const modal = document.getElementById('setup-modal');
+      if (!modal) return;
       modal.classList.remove('hidden');
       modal.classList.add('flex');
     }
 
     function closeSetupModal() {
       const modal = document.getElementById('setup-modal');
+      if (!modal) return;
       modal.classList.add('hidden');
       modal.classList.remove('flex');
     }
 
-    async function saveAndConnectRepo(e) {
-      e.preventDefault();
-      state.config = {
-        owner: document.getElementById('input-owner').value.trim() || 'mkharwar314',
-        repo: document.getElementById('input-repo').value.trim(),
-        branch: document.getElementById('input-branch').value.trim() || 'main',
-        token: document.getElementById('input-token').value.trim()
-      };
-      saveConfigToStorage();
-      closeSetupModal();
-      await connectToGitHubRepo(state.config);
-    }
-
-    async function discoverUserRepos() {
-      const owner = document.getElementById('input-owner').value.trim() || 'mkharwar314';
-      const token = document.getElementById('input-token').value.trim();
-      const pickerBox = document.getElementById('repo-picker-box');
-      const pickerList = document.getElementById('repo-picker-list');
-
-      pickerBox.classList.remove('hidden');
-      pickerList.innerHTML = `<p class="text-muted px-1 py-1">Loading...</p>`;
-
-      try {
-        const headers = { 'Accept': 'application/vnd.github+json' };
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-
-        // Use /user/repos when authenticated so private repositories also appear
-        const listEndpoint = token
-          ? 'https://api.github.com/user/repos?sort=updated&per_page=50&affiliation=owner,collaborator'
-          : `https://api.github.com/users/${encodeURIComponent(owner)}/repos?sort=updated&per_page=30`;
-
-        const res = await fetch(listEndpoint, { headers });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-        const repos = await res.json();
-        if (!Array.isArray(repos) || repos.length === 0) {
-          pickerList.innerHTML = `<p class="text-muted px-1 py-1">No repositories found.</p>`;
-          return;
-        }
-
-        pickerList.innerHTML = repos.map(r => `
-          <button
-            type="button"
-            onclick="pickDiscoveredRepo('${escapeHtml(r.name)}', '${escapeHtml(r.default_branch || 'main')}')"
-            class="w-full flex items-center justify-between px-2 py-1 rounded hover:bg-elevated text-left text-ink transition"
-          >
-            <span class="truncate">${escapeHtml(r.name)} ${r.private ? '<span class="text-[10px] text-teal ml-1">private</span>' : ''}</span>
-            <span class="text-[11px] text-muted shrink-0 ml-2">${escapeHtml(r.default_branch || 'main')}</span>
-          </button>
-        `).join('');
-      } catch (err) {
-        pickerList.innerHTML = `<p class="text-muted px-1 py-1">Unable to list repositories (${escapeHtml(err.message)}).</p>`;
-      }
-    }
-
-    function pickDiscoveredRepo(repoName, defaultBranch) {
-      document.getElementById('input-repo').value = repoName;
-      document.getElementById('input-branch').value = defaultBranch;
-      document.getElementById('repo-picker-box').classList.add('hidden');
-    }
-
-    function setLoadingState(isLoading) {
+    function setLoadingState(loading) {
       const loader = document.getElementById('reader-loader');
-      const mdOut = document.getElementById('markdown-output');
-      const rawOut = document.getElementById('raw-output-container');
-
-      if (isLoading) {
-        loader.classList.remove('hidden');
-        mdOut.classList.add('hidden');
-        rawOut.classList.add('hidden');
-      } else {
-        loader.classList.add('hidden');
-        setViewMode(state.viewMode);
-      }
+      const mdEl = document.getElementById('markdown-output');
+      if (loader) loader.classList.toggle('hidden', !loading);
+      if (mdEl && loading) mdEl.innerHTML = '';
     }
 
-    function showBanner(message) {
+    function showBanner(msg) {
       const banner = document.getElementById('status-banner');
-      document.getElementById('status-banner-msg').textContent = message;
-      banner.classList.remove('hidden');
+      const msgEl = document.getElementById('status-banner-msg');
+      if (msgEl) msgEl.textContent = msg;
+      if (banner) banner.classList.remove('hidden');
     }
 
     function hideBanner() {
-      document.getElementById('status-banner').classList.add('hidden');
-    }
-
-    function copyActiveNoteMarkdown() {
-      if (!state.activePath || state.contentCache[state.activePath] === undefined) return;
-      copyTextToClipboard(state.contentCache[state.activePath]);
-      showToast('Markdown copied');
-    }
-
-    function copyTextToClipboard(text) {
-      const textarea = document.createElement('textarea');
-      textarea.value = text;
-      textarea.style.position = 'fixed';
-      textarea.style.opacity = '0';
-      document.body.appendChild(textarea);
-      textarea.select();
-      try {
-        document.execCommand('copy');
-      } catch (err) {
-        console.error('Copy failed:', err);
-      }
-      document.body.removeChild(textarea);
+      const banner = document.getElementById('status-banner');
+      if (banner) banner.classList.add('hidden');
     }
 
     let toastTimer = null;
     function showToast(msg) {
       const toast = document.getElementById('toast');
-      document.getElementById('toast-message').textContent = msg;
+      const msgEl = document.getElementById('toast-message');
+      if (!toast || !msgEl) return;
+
+      msgEl.textContent = msg;
       toast.classList.remove('translate-y-16', 'opacity-0');
       clearTimeout(toastTimer);
       toastTimer = setTimeout(() => {
         toast.classList.add('translate-y-16', 'opacity-0');
-      }, 2000);
+      }, 2200);
+    }
+
+    function copyTextFallback(text) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+      } catch (e) {
+        // Ignore copy failure
+      }
+      document.body.removeChild(ta);
     }
 
     function escapeHtml(str) {
@@ -1652,8 +2199,35 @@ nmap -sC -sV -p $PORTS -Pn $TARGET -oN detailed.nmap
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
+        .replace(/'/g, '&#39;');
     }
+
+    // Explicitly expose all inline HTML handlers on window
+    Object.assign(window, {
+      toggleSidebar,
+      openSetupModal,
+      closeSetupModal,
+      saveAndConnectRepo,
+      discoverUserRepos,
+      pickDiscoveredRepo,
+      activateDemoMode,
+      refreshRepository,
+      selectNote,
+      toggleFolder,
+      toggleRawView,
+      toggleForceMarkdownOnTxt,
+      toggleGraphView,
+      toggleGraphScope,
+      resetGraphZoom,
+      hideBanner,
+      switchNoteByOffset,
+      updateNoteSwitcherUI,
+      handleSearchInput,
+      clearSearch,
+      openHeroSearchResults,
+      closeHeroSearchResults,
+      handleHeroSearchKeydown
+    });
   </script>
 </body>
 </html>
